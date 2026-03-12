@@ -19,8 +19,8 @@ namespace comm
   constexpr const char* STOP = "K";
   constexpr const char* START = "B";
 
-  constexpr const char* MANUAL = "M";
-  constexpr const char* MAPPING = "F";
+  constexpr const char* CHANGE_TO_MANUAL = "M";
+  constexpr const char* CHANGE_TO_MAPPING = "F";
 
   constexpr const char* EVENT = "E";
 
