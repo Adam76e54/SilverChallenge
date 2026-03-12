@@ -62,6 +62,9 @@ void manualHandle(Buffer<N> buffer){
     state.leftSpeedPercentage = -0.8;
     state.rightSpeedPercentage = -1;
   }
+  else if(function == CHANGE_TO_MAPPING){
+    state.mode = MAPPING;
+  }
 }
 
 template <uint8_t N>
@@ -86,5 +89,8 @@ void mappingHandle(Buffer<N> buffer){
   else if (function == *comm::TURN_RIGHT){
     state.activity = RIGHT;
     state.targetAngle = atoi(value)
-  } 
+  }   
+  else if(function == CHANGE_TO_MANUAL){
+    state.mode = MANUAL;
+  }
 }
