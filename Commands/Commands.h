@@ -1,6 +1,5 @@
 #pragma once
 
-//COMMANDS_H
 namespace comm
 {
   constexpr char DELIMITER = ':';//commands will look like "LEFT:SPEED:12.3"
@@ -9,20 +8,19 @@ namespace comm
   constexpr const char* LEFT = "L";
   constexpr const char* RIGHT = "R";
   constexpr const char* SPEED = "O";
-  constexpr const char* IR = "I";
   constexpr const char* ULTRA_SONIC = "U";
 
   constexpr const char* DIRECTION = "Q";
-  constexpr const char* W = "W";
-  constexpr const char* D = "D";
-  constexpr const char* A = "A";
-  constexpr const char* S = "S";
+  constexpr const char* FORWARD = "W";
+  constexpr const char* TURN_RIGHT = "D";
+  constexpr const char* TURN_LEFT = "A";
+  constexpr const char* BACKWARD = "S";
+
   constexpr const char* STOP = "K";
   constexpr const char* START = "B";
 
   constexpr const char* MANUAL = "M";
-  constexpr const char* TRACK = "T";
-  constexpr const char* FOLLOW = "F";
+  constexpr const char* MAPPING = "F";
 
   constexpr const char* EVENT = "E";
 
