@@ -3,7 +3,7 @@
 
 #include <Arduino.h> 
 
-enum MODE : uint8_t {TRACK, MANUAL, FOLLOW, MAPPING};
+enum MODE : uint8_t {MANUAL, MAPPING};
 
 struct State{
   MODE mode = MANUAL;
