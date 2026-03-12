@@ -36,15 +36,16 @@ class ROB12629{
 
     unsigned long count() const{
       noInterrupts();
-      return count_;
+      auto count = count_;
       interrupts();
+      return count;
     }
 
     unsigned long lastCount() const{
       return lastcount_;
     }
 
-    void update(unsigned long interval){
+    void update(unsigned long interval_microseconds){
       auto now = micros();
       unsigned long dt_m = now - lastTime_;
 
@@ -53,8 +54,12 @@ class ROB12629{
       interrupts();
 
       updateDistance(count);
-      if(dt_m >= interval){
+      if(dt_m >= interval_microseconds){
+        
         unsigned long dc = count - lastcount_;
+
+        // Serial.print("dc = ");
+        // Serial.println(dc);
 
         lastTime_ = now;
         lastcount_ = count;
@@ -64,9 +69,9 @@ class ROB12629{
           return;
         }
 
-        float revs = (float)dc / COUNTS_PER_REV_;
-        double dt_s = dt_m * 1e-6f;//convert mircos to seconds;
-        rps_ = (revs/dt_s) * 60.0f;
+        double revs = (double)dc / COUNTS_PER_REV_;
+        double dt_s = dt_m * 1e-6f;//convert micros to seconds;
+        rps_ = (revs/dt_s);
       }
     }
 
@@ -89,4 +94,17 @@ class ROB12629{
     void resetDistance(){
       distance_ = 0;
     }
+
+    void resetCount(){
+      count_ = 0;
+      lastcount_ = 0;
+    }
+
+    void reset(){
+      resetCount();
+      resetDistance();
+    }
+
+  private:
+
 };

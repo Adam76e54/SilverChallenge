@@ -45,11 +45,11 @@ class CD4021 {
     double cmPerSecond() const{
       return rps_ * CIRCUMFERENCE_;
     }
-    
+
     void update(unsigned long interval_microseconds){
       count_ = shiftIn();
       updateDistance(count_);
-      updateSpeed(count_, interval_microseconds);
+      updateRevs(count_, interval_microseconds);
     }
 
     double distance() const{
@@ -67,7 +67,7 @@ class CD4021 {
 
 
   private: 
-    void updateSpeed(uint8_t count, unsigned long interval_microseconds){
+    void updateRevs(uint8_t count, unsigned long interval_microseconds){
       auto now = micros();
       unsigned long dt_micro = now - lastTime_;
 
