@@ -7,7 +7,7 @@ namespace comm
 
   constexpr const char* LEFT = "L";
   constexpr const char* RIGHT = "R";
-  constexpr const char* SPEED = "O";
+  constexpr const char* CHANGE_SPEED = "O";
   constexpr const char* ULTRA_SONIC = "U";
 
   constexpr const char* DIRECTION = "Q";

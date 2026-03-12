@@ -4,9 +4,14 @@
 #include <Arduino.h> 
 
 enum MODE : uint8_t {MANUAL, MAPPING};
+enum ACTIVITY : uint8_T {IDLE, FORWARD, LEFT, RIGHT};
 
 struct State{
   MODE mode = MANUAL;
+  ACTIVITY activity = IDLE; 
+
+  float targetDistance = 0;
+  int targetAngle = 0;
 
   // should be [-1.0, 1.0]
   float leftSpeedPercentage = 0;

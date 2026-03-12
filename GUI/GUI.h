@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
+#include <WiFiS3.h>
 #include "State.h"
 #include "Buffer.h"
 
@@ -39,12 +40,51 @@ template <uint8_t N>
 void manualHandle(Buffer<N> buffer){
   char command[N];
 
-  read(command, N);
+  buffer.read(command, N);
 
-  // here is where the hashtable should get placed
+  if(command == nullptr) return;
+
+  char function = *command; 
+
+  if (function == *comm::FORWARD){
+    state.leftSpeedPercentage = 0.8;
+    state.rightSpeedPercentage = 1;
+  }
+  else if (function == *comm::TURN_LEFT){
+    state.leftSpeedPercentage = 0.8;
+    state.rightSpeedPercentage = -1;
+  }
+  else if (function == *comm::TURN_RIGHT){
+    state.leftSpeedPercentage = -0.8;
+    state.rightSpeedPercentage = 1;
+  }
+  else if (function == *comm::BACKWARD){
+    state.leftSpeedPercentage = -0.8;
+    state.rightSpeedPercentage = -1;
+  }
 }
 
 template <uint8_t N>
 void mappingHandle(Buffer<N> buffer){
+  char command[N];
+
+  buffer.read(command, N);
+
+  if(command == nullptr || command[1] != comm::DELIMITER) return;
+
+  uint8_t value = command[2];
+  char function = *command; 
   
+  if (function == *comm::FORWARD){
+    state.activity = FORWARD;
+    state.targetDistance = atof(value);
+  }
+  else if (function == *comm::TURN_LEFT){
+    state.activity = LEFT;
+    state.targetAngle = atoi(value)
+  }
+  else if (function == *comm::TURN_RIGHT){
+    state.activity = RIGHT;
+    state.targetAngle = atoi(value)
+  } 
 }
