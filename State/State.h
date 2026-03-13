@@ -16,7 +16,7 @@ struct State{
   float leftSpeedPercentage = 0;
   float rightSpeedPercentage = 0;
 
-  float targetRPM = 20;
+  float targetCmPerSecond = 20;
   float offset = 0.18;
 
   float maxDistance = 15.0;
