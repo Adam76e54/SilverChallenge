@@ -5,7 +5,8 @@ class CD4021 {
   private: 
     uint8_t clock_, data_, latch_; 
 
-    uint8_t count_, lastCount_, lastTime_;
+    uint8_t count_, lastCount_; 
+    unsigned long lastTime_;
     double rps_, distance_;
 
     static constexpr float COUNTS_PER_REV_ = 4.0f; // apparently there's 8 counts per revolution 
@@ -47,9 +48,19 @@ class CD4021 {
     }
 
     void update(unsigned long interval_microseconds){
+      noInterrupts();
       count_ = shiftIn();
+      interrupts();
+      // Serial.print("Count = "); Serial.print(count_);
+      // Serial.print("   Last count = "); Serial.print(lastCount_);
+
       updateDistance(count_);
+
+      // Serial.print("   Distance = "); Serial.print(distance_);
+
       updateRevs(count_, interval_microseconds);
+
+      // Serial.print("   cm/s = "); Serial.println(cmPerSecond());
     }
 
     double distance() const{
@@ -72,20 +83,29 @@ class CD4021 {
       unsigned long dt_micro = now - lastTime_;
 
 
+
       if(dt_micro >= interval_microseconds){
-        unsigned int dc = count - lastCount_;
+        uint8_t dc = count - lastCount_;
+
+        // Serial.print("  [updateRevs] dt (seconds)="); Serial.print(dt_micro * 1e-6f);
+        Serial.print("[CD4021 update] dc = "); Serial.print(dc);
+        // Serial.print("  lastCount_ = "); Serial.print(lastCount_);
+        // Serial.print("  count = "); Serial.print(count);
 
         if(dc == 0){
           rps_ = 0;
-          return;
         }
 
-        float revs = (float)dc / COUNTS_PER_REV_;
-        double dt_s = dt_micro * 1e-6f;//convert micros to seconds;b
-        rps_ = (revs/dt_s);
+        double dt_s = dt_micro * 1e-6f;//convert micros to seconds;
+        if(dt_s != 0){
+          float revs = (float)dc / COUNTS_PER_REV_;
+          rps_ = (revs/dt_s);
+        }    
 
         lastCount_ = count;
         lastTime_ = now;
+
+        Serial.print(" cm/s = "); Serial.println(rps_ * CIRCUMFERENCE_);
       }
     }
 

@@ -6,13 +6,15 @@ class ROB12629{
   private:
     uint8_t pin_;//one digital pin
     volatile unsigned long count_;
-    unsigned long lastcount_, lastTime_;
+    unsigned long lastCount_, lastTime_;
+    volatile unsigned long lastISRTime_;
     double rps_, distance_; //revs per second
 
     static constexpr float COUNTS_PER_REV_ = 4.0f; 
     static constexpr float CIRCUMFERENCE_ = 20.4;
+    static constexpr unsigned int DEBOUNCE_ = 15000;
   public:
-    ROB12629(uint8_t pin) : pin_(pin), count_(0), lastcount_(0), lastTime_(0), rps_(0), distance_(0) {
+    ROB12629(uint8_t pin) : pin_(pin), count_(0), lastCount_(0), lastTime_(0), lastISRTime_(0), rps_(0), distance_(0) {
       //empty
     }
 
@@ -29,9 +31,14 @@ class ROB12629{
     //NOTE: the reason you can' have an ISR method is because C++ always implicitly passes *this. E.g. Class::func() calls will always be fed Class::func(this)
     //so it autogenerates a parameter. An ISR must have no parameters so needs to be a "free" function (not attached to an instance of a class)
 
-    void increment(){
-    //we'll use this inside of a globally defined ISR
+    void onInterrupt() {
+    // Called only from the ISR:
+      auto now = micros();
+      if(now - lastISRTime_ >= DEBOUNCE_){
       count_++;
+
+        lastISRTime_ = now;
+      }
     }
 
     unsigned long count() const{
@@ -42,36 +49,42 @@ class ROB12629{
     }
 
     unsigned long lastCount() const{
-      return lastcount_;
+      return lastCount_;
     }
 
     void update(unsigned long interval_microseconds){
       auto now = micros();
-      unsigned long dt_m = now - lastTime_;
+      unsigned long dt_micro = now - lastTime_;
 
       noInterrupts();
       unsigned long count = count_;
       interrupts();
+      // Serial.print("Count = "); Serial.println(count);
 
       updateDistance(count);
-      if(dt_m >= interval_microseconds){
-        
-        unsigned long dc = count - lastcount_;
+      if(dt_micro >= interval_microseconds){
+        unsigned int dc = count - lastCount_;
 
-        // Serial.print("dc = ");
-        // Serial.println(dc);
-
-        lastTime_ = now;
-        lastcount_ = count;
+        // Serial.print("  [updateRevs] dt (seconds)="); Serial.print(dt_micro * 1e-6f);
+        Serial.print("[encoder update] dc = "); Serial.print(dc);
+        // Serial.print("  lastCount_ = "); Serial.print(lastCount_);
+        // Serial.print("  count = "); Serial.print(count);
 
         if(dc == 0){
           rps_ = 0;
-          return;
         }
 
-        double revs = (double)dc / COUNTS_PER_REV_;
-        double dt_s = dt_m * 1e-6f;//convert micros to seconds;
-        rps_ = (revs/dt_s);
+        double dt_s = dt_micro * 1e-6f;//convert micros to seconds;
+        if(dt_s != 0){
+          float revs = (float)dc / COUNTS_PER_REV_;
+          rps_ = (revs/dt_s);
+        }    
+
+        lastCount_ = count;
+        lastTime_ = now;
+
+        // Serial.print(" Distance = "); Serial.print(distance_);
+        Serial.print(" cm/s = "); Serial.println(rps_ * CIRCUMFERENCE_);
       }
     }
 
@@ -97,7 +110,7 @@ class ROB12629{
 
     void resetCount(){
       count_ = 0;
-      lastcount_ = 0;
+      lastCount_ = 0;
     }
 
     void reset(){

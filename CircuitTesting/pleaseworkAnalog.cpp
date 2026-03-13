@@ -1,13 +1,9 @@
 #include "Buggy.h"
 
-// L293D: (enableA, enableB, in1, in2, in3, in4) – adapt to your wiring
 L293D driver(6, 7, 11, 12, 9, 10);
 
-// HCSR04(trigger, echo)
-HCSR04 ears(8, 4);
+HCSR04 ears(8, 3);
 
-// CD4021(shData, shclockPin, shlatchPin)
-// Use 8 instead of 5 for the clockPin to avoid conflict with HCSR04
 CD4021 shifter(4, 5, 13);
 
 constexpr uint8_t RESET_PIN = A0;
@@ -28,10 +24,7 @@ void setup() {
 void loop() {
   // reset();
   driver.drive(0.4,0.4);
-
-  static unsigned long lastTime = 0;
-
-  unsigned int interval = 100000;
+  unsigned int interval = 2000000;
   shifter.update(interval);
 }
 
