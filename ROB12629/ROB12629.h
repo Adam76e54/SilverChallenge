@@ -10,7 +10,7 @@ class ROB12629{
     volatile unsigned long lastISRTime_;
     double rps_, distance_; //revs per second
 
-    static constexpr float COUNTS_PER_REV_ = 4.0f; 
+    static constexpr float COUNTS_PER_REV_ = 8.0f; 
     static constexpr float CIRCUMFERENCE_ = 20.4;
     static constexpr unsigned int DEBOUNCE_ = 15000;
   public:
@@ -26,7 +26,7 @@ class ROB12629{
 
       lastTime_ = micros();
       pinMode(pin_, INPUT_PULLUP);
-      attachInterrupt(digitalPinToInterrupt(pin_), ISR, RISING);
+      attachInterrupt(digitalPinToInterrupt(pin_), ISR, CHANGE);
     }
     //NOTE: the reason you can' have an ISR method is because C++ always implicitly passes *this. E.g. Class::func() calls will always be fed Class::func(this)
     //so it autogenerates a parameter. An ISR must have no parameters so needs to be a "free" function (not attached to an instance of a class)
