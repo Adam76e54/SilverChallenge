@@ -8,7 +8,7 @@
 #include "EEPROM.h"
 
 
-bool _clocked  = false;
+volatile bool _clocked  = false;
 void _clockingISR(){
   _clocked = true;
 }
@@ -83,27 +83,109 @@ namespace mapping{
   void calibrate(L293D& driver, CD4021 &shifter, ROB12629 &encoder, void (*resetShifter)(), void (*myISR)()){
 
     // Fetch the speeds from last time (we're keeping them in EEPROM)
-    if(EEPROM.begin(state.EEPROM_SIZE)){
-      float left, right;
-      EEPROM.get(state.LEFT_EEPROM_ADDRESS, left);
-      EEPROM.get(state.RIGHT_EEPROM_ADDRESS, right);
+    float left, right;
+    EEPROM.get(state.LEFT_EEPROM_ADDRESS, left);
+    EEPROM.get(state.RIGHT_EEPROM_ADDRESS, right);
 
-      if(left < 0.0 || left > 1.0){
-        state.leftSpeedPercentage = 0.25;
-      } else {
-        state.leftSpeedPercentage = left;
-      }
-
-      if(right < 0.0 || right > 1.0){
-        state.rightSpeedPercentage = right; 
-      }
-    } else {
+    if(left < 0.0 || left > 1.0){
       state.leftSpeedPercentage = 0.25;
-      state.rightSpeedPercentage = 0.3;
+    } else {
+      state.leftSpeedPercentage = left;
     }
-  
-    setWheels(driver, shifter, encoder, resetShifter, myISR);
 
+    if(right < 0.0 || right > 1.0){
+      state.rightSpeedPercentage = 0.3; 
+    } else {
+      state.rightSpeedPercentage = right;
+    }
+
+
+    // Set the wheels for calibration
+    setWheels(driver, shifter, encoder, resetShifter, myISR);
+    delayMicroseconds(500);
+    encoder.reset();
+    resetShifter();
+
+
+    // Tolerance = 10 ms, target time = 1e3 ms
+    constexpr long TOLERANCE = 11, TARGET_TIME = 1000;
+    unsigned long shifterStart = 0, shifterEnd = 0, encoderStart = 0, encoderEnd = 0;
+    
+    bool shifterCalibrated = false;
+    bool encoderCalibrated = false;
+
+    while(!shifterCalibrated || !encoderCalibrated){
+      // While either wheel isn't at 20.4 cm/s, keep calibrating
+
+      bool shifterDone = false, encoderDone = false;
+
+      shifterStart = encoderStart = millis();
+      shifterEnd = 0, encoderEnd = 0;
+      while(!shifterDone || !encoderDone){
+        // Perform a revolution on both wheels, measure the time difference
+        if(shifter.shiftIn() < shifter.COUNTS_PER_REV_){
+          driver.rightForward(state.rightSpeedPercentage);
+        } else {
+          driver.rightBrake(L293D_BRAKE_TIME);
+          shifterEnd = millis();
+          shifterDone = true;
+        }
+
+        if(encoder.count() < encoder.COUNTS_PER_REV_){
+          driver.leftForward(state.leftSpeedPercentage);
+        } else {
+          driver.leftBrake(L293D_BRAKE_TIME);
+          encoderEnd = millis();
+          encoderDone = true;
+        }
+
+        // End of "Perform the run" loop
+      } 
+
+      long shifterTime = (long)shifterEnd - (long)shifterStart;
+      long encoderTime = (long)encoderEnd - (long)encoderStart;
+
+      shifterCalibrated = labs(shifterTime - TARGET_TIME) < TOLERANCE;
+      encoderCalibrated = labs(encoderTime - TARGET_TIME) < TOLERANCE;
+
+      if(!shifterCalibrated || !encoderCalibrated){
+        // If not calibrated after a run then compute error, turn around and reset wheels for next run
+        // NOTE: since it's not calibrated, the turning may be awful so it needs to be watched when calibrating
+
+        /*
+        NOTE: because the PWM to actual speed relationship is non-linear (friction and shit)
+        we'll use a corrector factor to tune how big of an effect the relative error should have
+        */
+        constexpr float PROPORTIONAL_CORRECTOR = 0.5f;
+        if(!shifterCalibrated){
+          float error = (shifterTime - TARGET_TIME) / TARGET_TIME;
+
+          state.rightSpeedPercentage = state.rightSpeedPercentage + PROPORTIONAL_CORRECTOR * error;
+          state.rightSpeedPercentage = constrain(state.rightSpeedPercentage, 0.0f, 1.0f);
+        }
+
+        if(!encoderCalibrated){
+          float error = (encoderTime - TARGET_TIME) / TARGET_TIME;
+
+          state.leftSpeedPercentage = state.leftSpeedPercentage + PROPORTIONAL_CORRECTOR * error;
+          state.leftSpeedPercentage = constrain(state.leftSpeedPercentage, 0.0f, 1.0f);
+        }
+
+
+        state.targetAngle = 180;
+        turnLeft(driver, shifter, encoder, resetShifter);
+
+        setWheels(driver, shifter, encoder, resetShifter, myISR);
+
+        // End of "correct the error" if statement
+      }
+
+      // End of big "do until calibrated" loop
+    }  
+
+    // Remember the calibrated speeds
+    EEPROM.put(state.LEFT_EEPROM_ADDRESS, state.leftSpeedPercentage);
+    EEPROM.put(state.RIGHT_EEPROM_ADDRESS, state.rightSpeedPercentage);
   }
 
   void setWheels(L293D& driver, CD4021 &shifter, ROB12629 &encoder, void (*resetShifter)(), void (*myISR)()){
@@ -117,8 +199,16 @@ namespace mapping{
     // Assign and interrupt to get the moment there's a pulse
     attachInterrupt(digitalPinToInterrupt(encoder.pin()), _clockingISR, CHANGE);
 
-    while(!_clocked){
+    noInterrupts();
+    bool localClocked = _clocked;
+    interrupts();
+
+    while(!localClocked){
       driver.leftForward(0.3);
+
+      noInterrupts();
+      localClocked = _clocked;
+      interrupts();
     }
     driver.leftBrake(L293D_BRAKE_TIME);
     _clocked = false;
@@ -131,14 +221,13 @@ namespace mapping{
     while(initialCount == shifter.shiftIn()){
       driver.rightForward(0.3);
     }
-    drive.rightBrake(L293D_BRAKE_TIME);
+    driver.rightBrake(L293D_BRAKE_TIME);
 
     // Reset circuits again just to make the function a "this gives us a fresh start" function
     encoder.reset();
     if(resetShifter) resetShifter();
-  }
+  } 
 
-  
 }
 
 
