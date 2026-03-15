@@ -9,10 +9,10 @@ class CD4021 {
     unsigned long lastTime_;
     double rps_, distance_;
 
+  public:
+
     static constexpr float COUNTS_PER_REV_ = 4.0f; // apparently there's 8 counts per revolution 
     static constexpr float CIRCUMFERENCE_ = 20.4;
-
-  public:
 
     CD4021(uint8_t clock, uint8_t data, uint8_t latch) : 
       clock_(clock)
@@ -56,7 +56,6 @@ class CD4021 {
 
       updateDistance(count_);
 
-      // Serial.print("   Distance = "); Serial.print(distance_);
 
       updateRevs(count_, interval_microseconds);
 
@@ -75,9 +74,6 @@ class CD4021 {
       distance_ = 0;
     }
 
-
-
-  private: 
     void updateRevs(uint8_t count, unsigned long interval_microseconds){
       auto now = micros();
       unsigned long dt_micro = now - lastTime_;
@@ -88,9 +84,10 @@ class CD4021 {
         uint8_t dc = count - lastCount_;
 
         // Serial.print("  [updateRevs] dt (seconds)="); Serial.print(dt_micro * 1e-6f);
-        Serial.print("[CD4021 update] dc = "); Serial.print(dc);
+        // Serial.print("[CD4021 update] dc = "); Serial.print(dc);
         // Serial.print("  lastCount_ = "); Serial.print(lastCount_);
         // Serial.print("  count = "); Serial.print(count);
+        Serial.print(" [CD4021] Distance = "); Serial.print(distance_);
 
         if(dc == 0){
           rps_ = 0;
@@ -105,7 +102,7 @@ class CD4021 {
         lastCount_ = count;
         lastTime_ = now;
 
-        Serial.print(" cm/s = "); Serial.println(rps_ * CIRCUMFERENCE_);
+        // Serial.print(" cm/s = "); Serial.println(rps_ * CIRCUMFERENCE_);
       }
     }
 

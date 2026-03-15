@@ -10,10 +10,12 @@ class ROB12629{
     volatile unsigned long lastISRTime_;
     double rps_, distance_; //revs per second
 
+  public:
+
     static constexpr float COUNTS_PER_REV_ = 8.0f; 
     static constexpr float CIRCUMFERENCE_ = 20.4;
     static constexpr unsigned int DEBOUNCE_ = 15000;
-  public:
+
     ROB12629(uint8_t pin) : pin_(pin), count_(0), lastCount_(0), lastTime_(0), lastISRTime_(0), rps_(0), distance_(0) {
       //empty
     }
@@ -66,7 +68,7 @@ class ROB12629{
         unsigned int dc = count - lastCount_;
 
         // Serial.print("  [updateRevs] dt (seconds)="); Serial.print(dt_micro * 1e-6f);
-        Serial.print("[encoder update] dc = "); Serial.print(dc);
+        // Serial.print("[encoder update] dc = "); Serial.print(dc);
         // Serial.print("  lastCount_ = "); Serial.print(lastCount_);
         // Serial.print("  count = "); Serial.print(count);
 
@@ -83,8 +85,8 @@ class ROB12629{
         lastCount_ = count;
         lastTime_ = now;
 
-        // Serial.print(" Distance = "); Serial.print(distance_);
-        Serial.print(" cm/s = "); Serial.println(rps_ * CIRCUMFERENCE_);
+        Serial.print(" [encoder] Distance = "); Serial.println(distance_);
+        // Serial.print(" cm/s = "); Serial.println(rps_ * CIRCUMFERENCE_);
       }
     }
 
@@ -116,6 +118,10 @@ class ROB12629{
     void reset(){
       resetCount();
       resetDistance();
+    }
+
+    uint8_t pin() const{
+      return pin_;
     }
 
   private:
