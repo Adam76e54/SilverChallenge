@@ -12,9 +12,15 @@ struct State{
   float targetDistance = 0;
   int targetAngle = 0;
 
+  float totalDistance = 0;
+
   // should be [-1.0, 1.0]
   float leftSpeedPercentage = 0;
   float rightSpeedPercentage = 0;
+
+  const uint8_t EEPROM_SIZE = 16;
+  const uint8_t LEFT_EEPROM_ADDRESS = 0;
+  const uint8_t RIGHT_EEPROM_ADDRESS = LEFT_EEPROM_ADDRESS + sizeof(float);
 
   float targetCmPerSecond = 20;
   float offset = 0.18;
