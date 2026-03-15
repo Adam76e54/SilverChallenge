@@ -1,8 +1,7 @@
 #pragma once
 #include <Arduino.h>
 
-#define L293D_BRAKE_TIME 200 //default for how long to brake for before coasting
-#define L293D_DEADTIME 200 //defines how long to wait before switching into forward/reverse in order to avoid shoot through
+#define L293D_BRAKE_TIME 100 //default for how long to brake for before coasting
 
 //only designed for two-motor set up. 
 //Assumes A1-A2 is left motor, A3-A4 is right
