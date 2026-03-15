@@ -1,4 +1,3 @@
-#pragma once
 ArrayList<String> lines = new ArrayList<String>();
 int maxLines = 10;
 
@@ -6,9 +5,6 @@ final int mode_TRACK = 0;
 final int mode_MANUAL = 1;
 final int mode_FOLLOW = 2;
 
-final int mode_TRACK = 0;
-final int mode_MANUAL = 1;
-final int mode_FOLLOW = 2;
 
 int mode = mode_MANUAL;
 
