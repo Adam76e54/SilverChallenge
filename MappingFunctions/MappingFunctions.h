@@ -16,12 +16,14 @@ void _clockingISR(){
 namespace mapping{
   void forward(L293D& driver);
   void left(L293D &driver);
-  void calibrate(L293D& driver, CD4021 &shifter, ROB12629 &encoder, void (*resetShifter)(), void (*myISR)());
+  void right(L293D& driver);
+  void calibrateRight(L293D& driver, CD4021 &shifter, ROB12629 &encoder, void (*resetShifter)(), void (*myISR)());
+  void calibrateLeft(L293D& driver, CD4021 &shifter, ROB12629 &encoder, void (*resetShifter)(), void (*myISR)());
   void setWheels(L293D& driver, CD4021 &shifter, ROB12629 &encoder, void (*resetShifter)(), void (*myISR)());
 
 
 
-  void forwardTimed(L293D& driver) {
+  void forward(L293D &driver) {
 
     float vL = state.leftCmPerSecond;
     float vR = state.rightCmPerSecond;
@@ -60,6 +62,27 @@ namespace mapping{
     
   }
 
+  void right(L293D& driver){
+    static constexpr float SWEEP_CIRCUMFERENCE = 13.6 * PI;
+
+    float targetSweep = SWEEP_CIRCUMFERENCE * state.targetAngle/360;
+    
+    float vL = state.leftCmPerSecond;
+    float vR = state.rightCmPerSecond;
+    float v  = min(vL, vR);  // use the limiting wheel
+
+    unsigned long duration_us = (unsigned long)(targetSweep / v * 1e6f);
+
+    unsigned long start = micros();
+    while ((unsigned long)(micros() - start) < duration_us) {
+      driver.leftForward(state.leftSpeedPercentage);
+      driver.rightBackward(state.rightSpeedPercentage);
+    }
+
+    driver.brake(L293D_BRAKE_TIME);
+    
+  }
+
   void calibrateLeft(L293D& driver, CD4021 &shifter, ROB12629 &encoder, void (*resetShifter)(), void (*myISR)()){
     // - FETCH EEPROM - 
     float speed;
@@ -80,7 +103,7 @@ namespace mapping{
     constexpr uint8_t NUMBER_OF_ROTATIONS_TO_USE = 5;
     constexpr float CIRCUMFERENCE = 20.4; 
 
-    constexpr unsigned long TOLERANCE = 100e3, TARGET_TIME = 1e6 * NUMBER_OF_ROTATIONS_TO_USE;
+    constexpr unsigned long TOLERANCE = 50e3, TARGET_TIME = 1e6 * NUMBER_OF_ROTATIONS_TO_USE;
     float proportionalCorrector = 0.15f;
     unsigned long start = 0, end = 0;
 
@@ -128,7 +151,7 @@ namespace mapping{
         
         
         float relativeError = (float)error / (float)TARGET_TIME;
-        constrain(relativeError, -0.2, 0.2);
+        // constrain(relativeError, -0.2, 0.2);
 
         if(fabs(relativeError) < 0.1){
           proportionalCorrector = 0.1;
@@ -215,12 +238,14 @@ namespace mapping{
       mapping::setWheels(driver, shifter, encoder, resetShifter, myISR);
       resetShifter();
 
+      Serial.print("Set and ready");
       // - PERFORM A RUN - 
       start = micros();
       while(!finishedRun){
         auto shift = shifter.shiftIn();
         if(shift < shifter.COUNTS_PER_REV_ * NUMBER_OF_ROTATIONS_TO_USE){
           driver.forward(state.leftSpeedPercentage, state.rightSpeedPercentage);
+          Serial.print("Count = ");
           Serial.println(shift);
         } else {
           driver.brake(L293D_BRAKE_TIME);
@@ -251,7 +276,6 @@ namespace mapping{
       if(absoluteError > TOLERANCE){
         
         float relativeError = (float)error / (float)TARGET_TIME;
-        constrain(relativeError, -0.2, 0.2);
 
         if(fabs(relativeError) < 0.1){
           proportionalCorrector = 0.1;
@@ -325,6 +349,7 @@ namespace mapping{
     while(!localClocked){
       driver.leftForward(0.3);
 
+      Serial.println("Setting left wheel");
       noInterrupts();
       localClocked = _clocked;
       interrupts();
@@ -338,6 +363,8 @@ namespace mapping{
     // - SET THE ANALOG-SIDE WHEEL - 
     uint8_t initialCount = shifter.shiftIn();
     while(initialCount == shifter.shiftIn()){
+      Serial.print("Setting right wheel = ");
+      Serial.println(initialCount);
       driver.rightForward(0.3);
     }
     driver.rightBrake(L293D_BRAKE_TIME);
