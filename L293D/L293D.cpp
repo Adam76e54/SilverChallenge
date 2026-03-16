@@ -65,8 +65,15 @@
   }
 
   void L293D::brake(unsigned int deadtime){
-    leftBrake(deadtime);
-    rightBrake(deadtime);
+
+    speed(1,1);
+
+    writeLeft(HIGH, HIGH);
+    writeRight(HIGH, HIGH);
+
+    delay(deadtime);
+
+    coast();
   }
 
   void L293D::coast(){
