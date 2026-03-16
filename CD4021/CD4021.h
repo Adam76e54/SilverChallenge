@@ -5,23 +5,14 @@ class CD4021 {
   private: 
     uint8_t clock_, data_, latch_; 
 
-    uint8_t count_, lastCount_; 
-    unsigned long lastTime_;
-    double rps_, distance_;
-
   public:
 
-    static constexpr float COUNTS_PER_REV_ = 4.0f; // apparently there's 8 counts per revolution 
-    static constexpr float CIRCUMFERENCE_ = 20.4;
+    static constexpr float COUNTS_PER_REV_ = 4.0f; 
 
     CD4021(uint8_t clock, uint8_t data, uint8_t latch) : 
       clock_(clock)
       , data_(data)
-      , latch_(latch)
-      , count_(0)
-      , lastCount_(0)
-      , rps_(0)
-      , distance_(0) {}
+      , latch_(latch) {}
 
     void begin() {
       pinMode(clock_, OUTPUT);
@@ -29,82 +20,8 @@ class CD4021 {
       pinMode(data_, INPUT);
       digitalWrite(clock_, LOW);
       digitalWrite(latch_, LOW);
-      lastTime_ = micros();
     }
 
-    auto lastCount() const {
-      return lastCount_;
-    }
-
-    auto count() const{
-      return count_;
-    }
-    double revsPerSecond() const{
-      return rps_;
-    }
-
-    double cmPerSecond() const{
-      return rps_ * CIRCUMFERENCE_;
-    }
-
-    void update(unsigned long interval_microseconds){
-      noInterrupts();
-      count_ = shiftIn();
-      interrupts();
-      // Serial.print("Count = "); Serial.print(count_);
-      // Serial.print("   Last count = "); Serial.print(lastCount_);
-
-      updateDistance(count_);
-
-
-      updateRevs(count_, interval_microseconds);
-
-      // Serial.print("   cm/s = "); Serial.println(cmPerSecond());
-    }
-
-    double distance() const{
-      return distance_;
-    }
-
-    void updateDistance(unsigned long count){
-      distance_ = (double)count * (CIRCUMFERENCE_ / COUNTS_PER_REV_);
-    }
-
-    void resetDistance(){
-      distance_ = 0;
-    }
-
-    void updateRevs(uint8_t count, unsigned long interval_microseconds){
-      auto now = micros();
-      unsigned long dt_micro = now - lastTime_;
-
-
-
-      if(dt_micro >= interval_microseconds){
-        uint8_t dc = count - lastCount_;
-
-        // Serial.print("  [updateRevs] dt (seconds)="); Serial.print(dt_micro * 1e-6f);
-        // Serial.print("[CD4021 update] dc = "); Serial.print(dc);
-        // Serial.print("  lastCount_ = "); Serial.print(lastCount_);
-        // Serial.print("  count = "); Serial.print(count);
-        Serial.print(" [CD4021] Distance = "); Serial.print(distance_);
-
-        if(dc == 0){
-          rps_ = 0;
-        }
-
-        double dt_s = dt_micro * 1e-6f;//convert micros to seconds;
-        if(dt_s != 0){
-          float revs = (float)dc / COUNTS_PER_REV_;
-          rps_ = (revs/dt_s);
-        }    
-
-        lastCount_ = count;
-        lastTime_ = now;
-
-        // Serial.print(" cm/s = "); Serial.println(rps_ * CIRCUMFERENCE_);
-      }
-    }
 
     uint8_t shiftIn(){
       // This is the custom function the lecturer suggested using (although I've made it cleaner)
