@@ -18,10 +18,15 @@ struct State{
   float leftSpeedPercentage = 0;
   float rightSpeedPercentage = 0;
 
+  float leftCmPerSecond = 0; 
+  float rightCmPerSecond = 0;
+
   const uint8_t EEPROM_SIZE = 16;
   const uint8_t LEFT_EEPROM_ADDRESS = 0;
   const uint8_t RIGHT_EEPROM_ADDRESS = LEFT_EEPROM_ADDRESS + sizeof(float);
-
+  const uint8_t LEFT_CM_PER_SECOND_EPROM_ADDRESS = RIGHT_EEPROM_ADDRESS + sizeof(float);
+  const uint8_t RIGHT_CM_PER_SECOND_EPROM_ADDRESS = LEFT_CM_PER_SECOND_EPROM_ADDRESS + sizeof(float);
+  
   float targetCmPerSecond = 20;
   float offset = 0.18;
 
