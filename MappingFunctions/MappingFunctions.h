@@ -14,108 +14,50 @@ void _clockingISR(){
 }
 
 namespace mapping{
-  void forward(L293D& driver, CD4021& shifter, ROB12629& encoder, void (*resetShifter)());
+  void forward(L293D& driver);
+  void left(L293D &driver);
   void calibrate(L293D& driver, CD4021 &shifter, ROB12629 &encoder, void (*resetShifter)(), void (*myISR)());
   void setWheels(L293D& driver, CD4021 &shifter, ROB12629 &encoder, void (*resetShifter)(), void (*myISR)());
 
 
-  void forward(L293D& driver, CD4021& shifter, ROB12629& encoder, void (*resetShifter)()){
-    Serial.println("Inside forward");
-    // NOTE: it actually might be better to have faith in the speed rather than the count. 
-    // If we know that she's going 20 cm/s then we can use timers which are much more accurate than encoders
-    // So I might change this later. 
 
-    // Get number of counts required
-    encoder.reset();
-    if(resetShifter){
-      resetShifter();
+  void forwardTimed(L293D& driver) {
+
+    float vL = state.leftCmPerSecond;
+    float vR = state.rightCmPerSecond;
+    float v  = min(vL, vR);  // use the limiting wheel
+
+    unsigned long duration_us = (unsigned long)(state.targetDistance / v * 1e6f);
+
+    unsigned long start = micros();
+    while ((unsigned long)(micros() - start) < duration_us) {
+      driver.forward(state.leftSpeedPercentage, state.rightSpeedPercentage);
     }
 
-    bool encoderSideDone = false, shifterSideDone = false;
-    while (!encoderSideDone || !shifterSideDone){
-      Serial.println("Inside while loop");
-      shifter.update(500); encoder.update(500);
-      if(encoder.distance() < state.targetDistance){
-        driver.leftForward(state.leftSpeedPercentage);
-      } else {
-        Serial.println("Finished on encoder-side wheel");
-        driver.leftBrake(L293D_BRAKE_TIME);
-        encoderSideDone = true;
-      } 
-
-      if(shifter.distance() < state.targetDistance){
-        driver.rightForward(state.rightSpeedPercentage);
-      } else {
-        driver.rightBrake(L293D_BRAKE_TIME);
-        shifterSideDone = true;
-      }
-    }
+    driver.brake(L293D_BRAKE_TIME);
 
     state.totalDistance += state.targetDistance;
   }
 
-  /* 
-  something like this might be better:
-
-void forwardTimed(L293D& driver,
-                  float distance_cm) {
-
-  float vL = state.leftSpeedCmPerSec;
-  float vR = state.rightSpeedCmPerSec;
-  float v  = min(vL, vR);  // use the limiting wheel
-
-  unsigned long duration_us = (unsigned long)(distance_cm / v * 1e6f);
-
-  unsigned long start = micros();
-  while ((unsigned long)(micros() - start) < duration_us) {
-    driver.leftForward(state.leftSpeedPercentage);
-    driver.rightForward(state.rightSpeedPercentage);
-    // small non-blocking maintenance if needed
-  }
-
-  driver.leftBrake(L293D_BRAKE_TIME);
-  driver.rightBrake(L293D_BRAKE_TIME);
-}
-  */
-
-  void turnLeft(L293D& driver, CD4021& shifter, ROB12629& encoder, void (*resetShifter)()){
+  void left(L293D& driver){
     static constexpr float SWEEP_CIRCUMFERENCE = 13.6 * PI;
 
     float targetSweep = SWEEP_CIRCUMFERENCE * state.targetAngle/360;
+    
+    float vL = state.leftCmPerSecond;
+    float vR = state.rightCmPerSecond;
+    float v  = min(vL, vR);  // use the limiting wheel
 
-    encoder.reset();
-    if(resetShifter){
-      resetShifter();
+    unsigned long duration_us = (unsigned long)(state.targetDistance / v * 1e6f);
+
+    unsigned long start = micros();
+    while ((unsigned long)(micros() - start) < duration_us) {
+      driver.leftBackward(state.leftSpeedPercentage);
+      driver.rightForward(state.rightSpeedPercentage);
     }
 
-    bool encoderSideDone = false, shifterSideDone = false;
-    while (!encoderSideDone || !shifterSideDone){
-      Serial.print("[Turning] "); 
-      // Serial.print(" Target sweep = "); Serial.print(targetSweep);
-      // Serial.print(" Left = "); Serial.print(state.leftSpeedPercentage);
-      // Serial.print(" Right = "); Serial.println(state.rightSpeedPercentage);
-
-      shifter.update(500); encoder.update(500);
-      if(encoder.distance() < targetSweep){
-        driver.leftBackward(state.leftSpeedPercentage);
-      } else {
-        Serial.println("Finished on encoder-side wheel");
-        driver.leftBrake(50);
-        encoderSideDone = true;
-      } 
-
-      if(shifter.distance() < targetSweep){
-        driver.rightForward(state.rightSpeedPercentage);
-      } else {
-        driver.rightBrake(50);
-        shifterSideDone = true;
-      }
-    }
-
-    encoder.reset();
-    if(resetShifter){
-      resetShifter();
-    }
+    driver.brake(L293D_BRAKE_TIME);
+    
   }
 
   void calibrateLeft(L293D& driver, CD4021 &shifter, ROB12629 &encoder, void (*resetShifter)(), void (*myISR)()){
