@@ -3,17 +3,22 @@
 #include <Arduino.h> 
 
 enum MODE : uint8_t {MANUAL, MAPPING};
-enum ACTIVITY : uint8_t {IDLE, FORWARD, LEFT, RIGHT};
+enum ACTIVITY : uint8_t {IDLE, FORWARD, LEFT, RIGHT, CALIBRATING};
 
 struct State{
   MODE mode = MANUAL;
   ACTIVITY activity = IDLE; 
 
   float targetDistance = 0;
-  int targetAngle = 0;
 
   float totalDistance = 0;
 
+  /*
+    - tolerance
+    - offset on right, left, 40 cm, 30 cm, 20 cm
+    - offset on actual wheel speeds too
+    - current speed
+  */
   // should be [-1.0, 1.0]
   float leftForwardPercentage = 0;
   float rightForwardPercentage = 0;
@@ -27,29 +32,28 @@ struct State{
   float leftBackwardCmPerSecond = 0;
   float rightBackwardCmPerSecond = 0;
 
-  const uint8_t LEFT_FORWARD_PERCENTAGE_ADDRESS = 0;
-  const uint8_t RIGHT_FORWARD_PERCENTAGE_ADDRESS = LEFT_FORWARD_PERCENTAGE_ADDRESS + sizeof(float);
+  unsigned long leftTurnTime = 0;
+  unsigned long righTurnTime = 0;
 
-  const uint8_t LEFT_FORWARD_CM_PER_SECOND_ADDRESS = RIGHT_FORWARD_PERCENTAGE_ADDRESS + sizeof(float);
-  const uint8_t RIGHT_FORWARD_CM_PER_SECOND_ADDRESS = LEFT_FORWARD_CM_PER_SECOND_ADDRESS + sizeof(float);
+  const unsigned int LEFT_FORWARD_PERCENTAGE_ADDRESS = 0;
+  const unsigned int RIGHT_FORWARD_PERCENTAGE_ADDRESS = LEFT_FORWARD_PERCENTAGE_ADDRESS + sizeof(float);
+
+  const unsigned int LEFT_FORWARD_CM_PER_SECOND_ADDRESS = RIGHT_FORWARD_PERCENTAGE_ADDRESS + sizeof(float);
+  const unsigned int RIGHT_FORWARD_CM_PER_SECOND_ADDRESS = LEFT_FORWARD_CM_PER_SECOND_ADDRESS + sizeof(float);
   
-  const uint8_t LEFT_BACKWARD_PERCENTAGE_ADDRESS = RIGHT_FORWARD_CM_PER_SECOND_ADDRESS + sizeof(float);
-  const uint8_t RIGHT_BACKWARD_PERCENTAGE_ADDRESS = LEFT_BACKWARD_PERCENTAGE_ADDRESS + sizeof(float);
+  const unsigned int LEFT_BACKWARD_PERCENTAGE_ADDRESS = RIGHT_FORWARD_CM_PER_SECOND_ADDRESS + sizeof(float);
+  const unsigned int RIGHT_BACKWARD_PERCENTAGE_ADDRESS = LEFT_BACKWARD_PERCENTAGE_ADDRESS + sizeof(float);
 
-  const uint8_t LEFT_BACKWARD_CM_PER_SECOND_ADDRESS = RIGHT_BACKWARD_PERCENTAGE_ADDRESS + sizeof(float);
-  const uint8_t RIGHT_BACKWARD_CM_PER_SECOND_ADDRESS = LEFT_BACKWARD_CM_PER_SECOND_ADDRESS + sizeof(float);
+  const unsigned int LEFT_BACKWARD_CM_PER_SECOND_ADDRESS = RIGHT_BACKWARD_PERCENTAGE_ADDRESS + sizeof(float);
+  const unsigned int RIGHT_BACKWARD_CM_PER_SECOND_ADDRESS = LEFT_BACKWARD_CM_PER_SECOND_ADDRESS + sizeof(float);
 
-  float targetCmPerSecond = 20;
-  float offset = 0.18;
+  const unsigned int LEFT_TURN_TIME_ADDRESS = RIGHT_BACKWARD_CM_PER_SECOND_ADDRESS + sizeof(float);
+  const unsigned int RIGHT_TURN_TIME_ADDRESS = LEFT_TURN_TIME_ADDRESS + sizeof(unsigned long);
 
-  float maxDistance = 15.0;
+  float maxUltraSonicDistance = 15.0;
   float currentDistance = 999.0;
 
   bool stopped = true;
 
 
 } state;
-
-struct Coefficients{
-  float KP, KI, KD;
-} coefficients;
