@@ -4,7 +4,7 @@ L293D driver(6, 7, 11, 12, 9, 10);
 
 HCSR04 ears(8, 3);
 
-CD4021 shifter(3, 5, 4);
+CD4021 shifter(A3, A2, A1);
 
 ROB12629 encoder(2);
 
@@ -26,31 +26,20 @@ void setup() {
   pinMode(RESET_PIN, OUTPUT);
 
   EEPROM.begin();
-
-  mapping::fetchEEPROM();
-
-  Serial.print("Left speed = "); Serial.println(state.leftForwardPercentage);
-  Serial.print("Right speed = "); Serial.println(state.rightForwardPercentage);
-
-  state.targetDistance = 30;
-  // mapping::calibrateRight(driver, shifter, encoder, reset, myISR);
-  // mapping::calibrateLeft(driver, shifter, encoder, reset, myISR);
-
+  mapping::calibrate(driver, shifter, encoder, reset, myISR);
 
   // mapping::setWheels(driver, shifter, encoder, reset, myISR);
 }
 
 void loop() {
+  // reset();
   // driver.drive(state.leftSpeedPercentage, state.rightSpeedPercentage);
 
-  auto now = millis();
-  static auto then = now;
 
-  if(now - then >= 5000){
-    mapping::forward(driver);
-
-    then = now;
-  }
+  Serial.print("Left percentage = ");
+  Serial.print(state.leftSpeedPercentage);
+  Serial.print("  Right percentage = ");
+  Serial.println(state.rightSpeedPercentage);
 }
 
 void reset(){
