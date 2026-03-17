@@ -25,18 +25,47 @@ namespace mapping{
 
   void forward(L293D &driver) {
 
-    float vL = state.leftCmPerSecond;
-    float vR = state.rightCmPerSecond;
-    float v  = min(vL, vR);  // use the limiting wheel
+    // NOTE: should probably allow for difference in wheels here too so that it ends up being roughly square
 
-    unsigned long duration_us = (unsigned long)(state.targetDistance / v * 1e6f);
+    unsigned long leftDuration_us = (unsigned long)(state.targetDistance / state.leftForwardCmPerSecond * 1e6f);
+    unsigned long rightDuration_us = (unsigned long)(state.targetDistance / state.rightForwardCmPerSecond * 1e6f);
 
-    unsigned long start = micros();
-    while ((unsigned long)(micros() - start) < duration_us) {
-      driver.forward(state.leftSpeedPercentage, state.rightSpeedPercentage);
+    auto start = micros();
+
+    bool leftDone = false, rightDone = false;
+    driver.forward(state.leftForwardPercentage, state.rightForwardPercentage);
+    while (!leftDone || !rightDone) {
+      auto time = micros() - start;
+      if((time < leftDuration_us) && (time < rightDuration_us)){
+        // keep going
+      } else {
+        leftDone = rightDone = true;
+        driver.brake(L293D_BRAKE_TIME);
+      }
     }
 
-    driver.brake(L293D_BRAKE_TIME);
+    state.totalDistance += state.targetDistance;
+  }
+  void backward(L293D &driver) {
+
+    // NOTE: should probably allow for difference in wheels here too so that it ends up being roughly square
+
+    unsigned long leftDuration_us = (unsigned long)(state.targetDistance / state.leftBackwardCmPerSecond * 1e6f);
+    unsigned long rightDuration_us = (unsigned long)(state.targetDistance / state.rightBackwardCmPerSecond * 1e6f);
+
+    auto start = micros();
+
+    bool leftDone = false, rightDone = false;
+    driver.backward(state.leftBackwardPercentage, state.rightBackwardPercentage);
+    while (!leftDone || !rightDone) {
+      auto time = micros() - start;
+      if((time < leftDuration_us) && (time < rightDuration_us)){
+        // keep going
+      } else {
+        leftDone = rightDone = true;
+        driver.brake(L293D_BRAKE_TIME);
+      }
+    }
 
     state.totalDistance += state.targetDistance;
   }
@@ -46,20 +75,29 @@ namespace mapping{
 
     float targetSweep = SWEEP_CIRCUMFERENCE * state.targetAngle/360;
     
-    float vL = state.leftCmPerSecond;
-    float vR = state.rightCmPerSecond;
-    float v  = min(vL, vR);  // use the limiting wheel
-
-    unsigned long duration_us = (unsigned long)(state.targetDistance / v * 1e6f);
+    // NOTE need to account for difference in wheels here
+    unsigned long rightDuration_us = (unsigned long)(targetSweep / state.rightForwardCmPerSecond * 1e6f);
+    unsigned long leftDuration_us = (unsigned long)(targetSweep / state.leftBackwardCmPerSecond * 1e6f);
 
     unsigned long start = micros();
-    while ((unsigned long)(micros() - start) < duration_us) {
-      driver.leftBackward(state.leftSpeedPercentage);
-      driver.rightForward(state.rightSpeedPercentage);
+    bool leftDone = false, rightDone = false;
+    while (!leftDone || !rightDone) {
+      auto time = micros() - start;
+      if(time < leftDuration_us){
+        driver.leftBackward(state.leftBackwardPercentage);
+      } else {
+        leftDone = true;
+        driver.leftBrake(10);
+      }
+
+      if(time < rightDuration_us){
+        driver.rightForward(state.rightForwardPercentage);
+      } else {
+        rightDone = true;
+        driver.rightBrake(10);
+      }
     }
 
-    driver.brake(L293D_BRAKE_TIME);
-    
   }
 
   void right(L293D& driver){
@@ -67,270 +105,274 @@ namespace mapping{
 
     float targetSweep = SWEEP_CIRCUMFERENCE * state.targetAngle/360;
     
-    float vL = state.leftCmPerSecond;
-    float vR = state.rightCmPerSecond;
-    float v  = min(vL, vR);  // use the limiting wheel
-
-    unsigned long duration_us = (unsigned long)(targetSweep / v * 1e6f);
+    // NOTE need to account for difference in wheels here
+    unsigned long rightDuration_us = (unsigned long)(targetSweep / state.rightBackwardCmPerSecond * 1e6f);
+    unsigned long leftDuration_us = (unsigned long)(targetSweep / state.leftForwardCmPerSecond * 1e6f);
 
     unsigned long start = micros();
-    while ((unsigned long)(micros() - start) < duration_us) {
-      driver.leftForward(state.leftSpeedPercentage);
-      driver.rightBackward(state.rightSpeedPercentage);
+    bool leftDone = false, rightDone = false;
+    while (!leftDone || !rightDone) {
+      auto time = micros() - start;
+      if(time < leftDuration_us){
+        driver.leftForward(state.leftForwardPercentage);
+      } else {
+        leftDone = true;
+        driver.leftCoast();
+      }
+
+      if(time < rightDuration_us){
+        driver.rightBackward(state.rightBackwardPercentage);
+      } else {
+        rightDone = true;
+        driver.rightCoast();
+      }
     }
 
     driver.brake(L293D_BRAKE_TIME);
-    
   }
 
-  void calibrateLeft(L293D& driver, CD4021 &shifter, ROB12629 &encoder, void (*resetShifter)(), void (*myISR)()){
-    // - FETCH EEPROM - 
+  void fetchEEPROM(){
+    // - LEFT FORWARD PERCENTAGE -
     float speed;
-    EEPROM.get(state.LEFT_EEPROM_ADDRESS, speed);
+    EEPROM.get(state.LEFT_FORWARD_PERCENTAGE_ADDRESS, speed);
 
     if(isnan(speed)){
-      speed = 0.26;
+      speed = 0.3;
     }
 
     if(speed < 0.0 || speed > 1.0){
-      state.leftSpeedPercentage = 0.26;
+      state.leftForwardPercentage = 0.3;
     } else {
-      state.leftSpeedPercentage = speed;
+      state.leftForwardPercentage = speed;
     }
 
-    Serial.print("[Left calibrator] Speed = "); Serial.println(state.leftSpeedPercentage, 6);
-
-    constexpr uint8_t NUMBER_OF_ROTATIONS_TO_USE = 5;
-    constexpr float CIRCUMFERENCE = 20.4; 
-
-    constexpr unsigned long TOLERANCE = 50e3, TARGET_TIME = 1e6 * NUMBER_OF_ROTATIONS_TO_USE;
-    float proportionalCorrector = 0.15f;
-    unsigned long start = 0, end = 0;
-
-    // - RUN CALIBRATION
-    bool calibrated = false;
-    while(!calibrated){
-      bool finishedRun = false;
-
-      // - SET WHEELS TO BE RIGHT ABOVE A COUNT -
-      mapping::setWheels(driver, shifter, encoder, resetShifter, myISR);
-      encoder.reset();
-
-      // - PERFORM A RUN - 
-      start = micros();
-      while(!finishedRun){
-        if(encoder.count() < encoder.COUNTS_PER_REV_ * NUMBER_OF_ROTATIONS_TO_USE){
-          driver.forward(state.leftSpeedPercentage, state.rightSpeedPercentage);
-        } else {
-          driver.brake(L293D_BRAKE_TIME);
-          end = micros();
-          finishedRun = true;
-        }
-        // - END RUN -
-      } 
-
-      Serial.print(" Finished a run "); 
-      Serial.println();
-
-      // - COMPUTE TIME TAKEN -
-      unsigned long time = (end >= start) ? (end - start) 
-          : (UINT32_MAX - start + 1u + end);
-      
-      Serial.print(" Time taken = "); Serial.print(time);
-      Serial.println();
-
-      long error = (long)time - (long)TARGET_TIME;
-      unsigned long absoluteError = labs(error);
-
-      Serial.print(" Abs Err = "); Serial.print(absoluteError);
-      Serial.println();
-
-
-      // - MAKE ADJUSTMENT -
-      if(absoluteError > TOLERANCE){
-        
-        
-        float relativeError = (float)error / (float)TARGET_TIME;
-        // constrain(relativeError, -0.2, 0.2);
-
-        if(fabs(relativeError) < 0.1){
-          proportionalCorrector = 0.1;
-        }
-
-        Serial.print(" Rel Err = "); Serial.print(relativeError, 6);
-        Serial.println();
-
-        state.leftSpeedPercentage = state.leftSpeedPercentage + proportionalCorrector * relativeError;
-        state.leftSpeedPercentage = constrain(state.leftSpeedPercentage, 0.0f, 1.0f);
-        
-        Serial.print(" New speed = "); Serial.print(state.leftSpeedPercentage ,6);
-        Serial.println();
-        
-        // - TURN AROUND FOR NEXT RUN
-        state.targetAngle = 180;    
-        // turnLeft(driver, shifter, encoder, resetShifter);
-
-        Serial.print(" turned around ");
-        Serial.println();
-      } else {
-        calibrated = true;
-
-        state.leftCmPerSecond = NUMBER_OF_ROTATIONS_TO_USE * CIRCUMFERENCE / (float)(time * 1e-6);
-        
-        Serial.print(" Calibrated! ");
-        Serial.print(" New speed = "); Serial.print(state.leftCmPerSecond, 6);
-        Serial.println();
-
-        Serial.print(" Calibrated! ");
-        Serial.print(" New speed = "); Serial.print(state.leftSpeedPercentage, 6);
-        Serial.println();
-      }
-
-    }
-
-    // - UPDATE EEPROM -
-    if(speed != state.leftSpeedPercentage){
-      EEPROM.put(state.LEFT_EEPROM_ADDRESS, state.leftSpeedPercentage);
-
-      Serial.print(" Updated EEPROM");
-      Serial.println();
-    }
-
-    float cmPerSecond;
-    EEPROM.get(state.LEFT_CM_PER_SECOND_EPROM_ADDRESS, cmPerSecond);
-    if(cmPerSecond != state.leftCmPerSecond){
-      EEPROM.put(state.LEFT_CM_PER_SECOND_EPROM_ADDRESS, state.leftCmPerSecond);
-    }
-  }
-
-  void calibrateRight(L293D& driver, CD4021 &shifter, ROB12629 &encoder, void (*resetShifter)(), void (*myISR)()){
-
-    // - FETCH EEPROM - 
-    float speed; // "speed" is a percentage of 255 here
-    EEPROM.get(state.RIGHT_EEPROM_ADDRESS, speed);
+    // - RIGHT FORWARD PERCENTAGE -
+    EEPROM.get(state.RIGHT_FORWARD_PERCENTAGE_ADDRESS, speed);
 
     if(isnan(speed)){
-      speed = 0.27;
+      speed = 0.3;
     }
 
     if(speed < 0.0 || speed > 1.0){
-      state.rightSpeedPercentage = 0.27;
+      state.rightForwardPercentage = 0.3;
     } else {
-      state.rightSpeedPercentage = speed;
+      state.rightForwardPercentage = speed;
     }
 
-    Serial.print("[right calibrator] Speed = "); Serial.println(state.rightSpeedPercentage, 6);
+    // - LEFT BACKWARD PERCENTAGE -
+    EEPROM.get(state.LEFT_BACKWARD_PERCENTAGE_ADDRESS, speed);
 
-
-    constexpr uint8_t NUMBER_OF_ROTATIONS_TO_USE = 5;
-    constexpr float CIRCUMFERENCE = 20.4;
-
-    constexpr unsigned long TOLERANCE = 150e3, TARGET_TIME = 1e6 * NUMBER_OF_ROTATIONS_TO_USE;
-    float proportionalCorrector = 0.15f;
-    unsigned long start = 0, end = 0;
-
-    // - RUN CALIBRATION
-    bool calibrated = false;
-    while(!calibrated){
-      bool finishedRun = false;
-
-      // - SET WHEELS TO BE RIGHT ABOVE A COUNT -
-      mapping::setWheels(driver, shifter, encoder, resetShifter, myISR);
-      resetShifter();
-
-      Serial.print("Set and ready");
-      // - PERFORM A RUN - 
-      start = micros();
-      while(!finishedRun){
-        auto shift = shifter.shiftIn();
-        if(shift < shifter.COUNTS_PER_REV_ * NUMBER_OF_ROTATIONS_TO_USE){
-          driver.forward(state.leftSpeedPercentage, state.rightSpeedPercentage);
-          Serial.print("Count = ");
-          Serial.println(shift);
-        } else {
-          driver.brake(L293D_BRAKE_TIME);
-          end = micros();
-          finishedRun = true;
-        }
-        // - END RUN -
-      } 
-
-      Serial.print(" Finished a run "); 
-      Serial.println();
-
-      // - COMPUTE TIME TAKEN -
-      unsigned long time = (end >= start) ? (end - start) 
-          : (UINT32_MAX - start + 1u + end);
-      
-      Serial.print(" Time taken = "); Serial.print(time);
-      Serial.println();
-
-      long error = (long)time - (long)TARGET_TIME;
-      unsigned long absoluteError = labs(error);
-
-      Serial.print(" Abs Err = "); Serial.print(absoluteError);
-      Serial.println();
-
-
-      // - MAKE ADJUSTMENT -
-      if(absoluteError > TOLERANCE){
-        
-        float relativeError = (float)error / (float)TARGET_TIME;
-
-        if(fabs(relativeError) < 0.1){
-          proportionalCorrector = 0.1;
-        }
-
-        Serial.print(" Rel Err = "); Serial.print(relativeError, 6);
-        Serial.println();
-
-        state.rightSpeedPercentage = state.rightSpeedPercentage + proportionalCorrector * relativeError;
-        state.rightSpeedPercentage = constrain(state.rightSpeedPercentage, 0.0f, 1.0f);
-        
-        Serial.print(" New speed = "); Serial.print(state.rightSpeedPercentage ,6);
-        Serial.println();
-        
-        // - TURN AROUND FOR NEXT RUN
-        state.targetAngle = 180;    
-        // turnLeft(driver, shifter, encoder, resetShifter);
-
-        Serial.print(" turned around ");
-        Serial.println();
-      } else {
-        calibrated = true;
-
-        state.rightCmPerSecond = NUMBER_OF_ROTATIONS_TO_USE * CIRCUMFERENCE / (float)(time * 1e-6);
-
-        Serial.print(" Calibrated! ");
-        Serial.print(" New speed = "); Serial.print(state.rightCmPerSecond, 6);
-        Serial.println();
-
-        Serial.print(" Calibrated right side! ");
-        Serial.print(" New speed = "); Serial.print(state.rightSpeedPercentage, 6);
-        Serial.println();
-      }
-
-
-
+    if(isnan(speed)){
+      speed = 0.3;
     }
 
-    // - UPDATE EEPROM -
-    if(speed != state.rightSpeedPercentage){
-      EEPROM.put(state.RIGHT_EEPROM_ADDRESS, state.rightSpeedPercentage);
-
-      Serial.print(" Updated EEPROM");
-      Serial.println();
+    if(speed < 0.0 || speed > 1.0){
+      state.leftBackwardPercentage = 0.3;
+    } else {
+      state.leftBackwardPercentage = speed;
     }
 
-    float cmPerSecond;
-    EEPROM.get(state.RIGHT_CM_PER_SECOND_EPROM_ADDRESS, cmPerSecond);
-    if(cmPerSecond != state.rightCmPerSecond){
-      EEPROM.put(state.RIGHT_CM_PER_SECOND_EPROM_ADDRESS, state.rightCmPerSecond);
+    // - RIGHT BACKWARD PERCENTAGE -
+    EEPROM.get(state.RIGHT_BACKWARD_PERCENTAGE_ADDRESS, speed);
+
+    if(isnan(speed)){
+      speed = 0.3;
     }
 
+    if(speed < 0.0 || speed > 1.0){
+      state.rightBackwardPercentage = 0.3;
+    } else {
+      state.rightBackwardPercentage = speed;
+    }
+
+    EEPROM.get(state.LEFT_FORWARD_CM_PER_SECOND_ADDRESS, speed);
+    state.leftForwardCmPerSecond = speed;
+
+    EEPROM.get(state.RIGHT_FORWARD_CM_PER_SECOND_ADDRESS, speed);
+    state.rightForwardCmPerSecond = speed;
+
+    EEPROM.get(state.LEFT_BACKWARD_CM_PER_SECOND_ADDRESS, speed);
+    state.leftBackwardCmPerSecond = speed;
+
+    EEPROM.get(state.RIGHT_BACKWARD_CM_PER_SECOND_ADDRESS, speed);
+    state.rightBackwardCmPerSecond = speed;
     
   }
 
+void calibrate(L293D& driver, CD4021 &shifter, ROB12629 &encoder, void (*resetShifter)(), void (*myISR)()){
+  float leftForwardPercentage = state.leftForwardPercentage;
+  float rightForwardPercentage = state.rightForwardPercentage;
+
+  float leftBackwardPercentage = state.leftBackwardPercentage;
+  float rightbackwardPercentage = state.rightBackwardPercentage;
+
+  constexpr uint8_t ROTATIONS_TO_USE = 5;
+  constexpr float CIRCUMFERENCE = 20.4;
+
+  constexpr unsigned long TARGET_TIME = 1e6 * ROTATIONS_TO_USE;
+
+  constexpr float TOLERANCE = 0.01;
+
+  bool forwardCalibrated = false, backwardCalibrated = false;
+
+
+  float leftfHigh = 1.0f, leftfLow = 0.0f;
+  float rightfHigh = 1.0f, rightfLow = 0.0f;
+
+  float leftbHigh = 1.0f, leftbLow = 0.0f;
+  float rightbHigh = 1.0f, rightbLow = 0.0f;
+
+  // int8_t iteration = 0;
+  // constexpr uint8_t MAX_ITERATIONS = 20;
+
+  while(!forwardCalibrated || !backwardCalibrated){
+    // - SET WHEELS ABOVE A COUNT -
+    mapping::setWheels(driver, shifter, encoder, resetShifter, myISR);
+
+    // - PERFORM FOWARD RUN -
+    delay(2000);
+
+    if(!forwardCalibrated){
+      // - MEAURE FORWARD RUN -
+      unsigned long leftTime = 0, rightTime = 0;
+      measureForward(driver, shifter, encoder, leftForwardPercentage
+        , rightForwardPercentage, leftTime, rightTime, ROTATIONS_TO_USE);
+
+      // - ADJUST FORWARD SPEEDS -
+      float leftError = (float)((long)leftTime - (long)TARGET_TIME) / (TARGET_TIME);  
+      float rightError = (float)(rightTime - TARGET_TIME) / (TARGET_TIME);
+
+
+      leftForwardPercentage = binaryAdjust(leftForwardPercentage, leftfHigh, leftfLow, leftError, TOLERANCE);
+
+      rightForwardPercentage = binaryAdjust(rightForwardPercentage, rightfHigh, rightfLow, rightError, TOLERANCE);
+
+      if(fabs(leftError) <= TOLERANCE && fabs(rightError) <= TOLERANCE){
+        forwardCalibrated = true;
+
+        state.leftForwardPercentage = leftForwardPercentage;
+        state.rightForwardPercentage = rightForwardPercentage;
+
+        state.leftForwardCmPerSecond = (CIRCUMFERENCE * ROTATIONS_TO_USE) / (leftTime / 1e6);
+        state.rightForwardCmPerSecond = (CIRCUMFERENCE * ROTATIONS_TO_USE) / (rightTime / 1e6);
+      }
+
+    } else {
+      // - IF CALIBRATED FORWARD, JUST MOVE FORWARD TO CLEAR WAY FOR BACKWARDS CALIBRATION
+      state.targetDistance = CIRCUMFERENCE * ROTATIONS_TO_USE;
+      mapping::forward(driver);
+    }
+
+    // - PERFORM BACKWARDS RUN -
+    // - SET WHEELS ABOVE A COUNT -
+    mapping::setWheels(driver, shifter, encoder, resetShifter, myISR);
+
+    delay(2000);
+    
+    if(!backwardCalibrated){
+      unsigned long leftTime = 0, rightTime = 0;
+      measureBackward(driver, shifter, encoder, leftBackwardPercentage
+        , rightbackwardPercentage, leftTime, rightTime, ROTATIONS_TO_USE);
+
+      // - ADJUST BACKWARD SPEEDS -
+      float leftError = (float)((long)leftTime - (long)TARGET_TIME) / (TARGET_TIME);  
+      float rightError = (float)(rightTime - TARGET_TIME) / (TARGET_TIME);
+
+
+      leftBackwardPercentage = binaryAdjust(leftBackwardPercentage, leftbHigh, leftbLow, leftError, TOLERANCE);
+      rightbackwardPercentage = binaryAdjust(rightbackwardPercentage, rightbHigh, rightbLow, rightError, TOLERANCE);
+
+      if(fabs(leftError) <= TOLERANCE && fabs(rightError) <= TOLERANCE){
+        backwardCalibrated = true;
+
+        state.leftBackwardPercentage = leftBackwardPercentage;
+        state.rightBackwardPercentage = rightbackwardPercentage;
+
+        state.leftBackwardCmPerSecond = (CIRCUMFERENCE * ROTATIONS_TO_USE) / (leftTime / 1e6);
+        state.rightBackwardCmPerSecond = (CIRCUMFERENCE * ROTATIONS_TO_USE) / (rightTime / 1e6);
+      }
+    } else {
+      // - IF CALIBRATED FORWARD, JUST MOVE FORWARD TO CLEAR WAY FOR BACKWARDS CALIBRATION
+      state.targetDistance = CIRCUMFERENCE * ROTATIONS_TO_USE;
+      mapping::backward(driver);
+    }
+  }
+
+  // - UPDATE EEPROM -
+  EEPROM.put(state.LEFT_FORWARD_PERCENTAGE_ADDRESS, state.leftForwardPercentage);
+  EEPROM.put(state.LEFT_FORWARD_CM_PER_SECOND_ADDRESS, state.leftForwardCmPerSecond);
+
+  EEPROM.put(state.LEFT_BACKWARD_PERCENTAGE_ADDRESS, state.leftBackwardPercentage);
+  EEPROM.put(state.LEFT_BACKWARD_CM_PER_SECOND_ADDRESS, state.leftBackwardCmPerSecond);
+
+  EEPROM.put(state.RIGHT_FORWARD_PERCENTAGE_ADDRESS, state.rightForwardPercentage);
+  EEPROM.put(state.RIGHT_FORWARD_CM_PER_SECOND_ADDRESS, state.rightForwardCmPerSecond);
+
+  EEPROM.put(state.RIGHT_BACKWARD_PERCENTAGE_ADDRESS, state.rightBackwardPercentage);
+  EEPROM.put(state.RIGHT_BACKWARD_CM_PER_SECOND_ADDRESS, state.rightBackwardCmPerSecond);
+
+
+}
+
+void measureForward(L293D& driver, CD4021& shifter, ROB12629& encoder
+  , float left, float right, unsigned long& leftTime, unsigned long& rightTime, const uint8_t ROTATIONS_TO_USE){
+  
+  unsigned long start = micros();
+
+  bool finishedLeft = false, finishedRight = false;
+  while(!finishedLeft || !finishedRight){
+    auto shifted = shifter.shiftIn();
+    auto encoded = encoder.count();
+
+    if((encoded < encoder.COUNTS_PER_REV_ * ROTATIONS_TO_USE) && !finishedLeft){
+      driver.leftForward(left);
+    } else {
+      driver.leftCoast();
+      finishedLeft = true;
+
+      leftTime = micros() - start;
+    }
+
+    if((shifted < shifter.COUNTS_PER_REV_ * ROTATIONS_TO_USE) && !finishedRight){
+      driver.rightForward(right);
+    } else {
+      driver.rightCoast();
+      finishedRight = true;
+
+      rightTime = micros() - start;
+    }
+  }
+}
+
+void measureBackward(L293D& driver, CD4021& shifter, ROB12629& encoder
+  , float left, float right, unsigned long& leftTime, unsigned long& rightTime, const uint8_t ROTATIONS_TO_USE ){
+  
+  unsigned long start = micros();
+
+  bool finishedLeft = false, finishedRight = false;
+  while(!finishedLeft || !finishedRight){
+    auto shifted = shifter.shiftIn();
+    auto encoded = encoder.count();
+
+    if((encoded < encoder.COUNTS_PER_REV_ * ROTATIONS_TO_USE) && !finishedLeft){
+      driver.leftBackward(left);
+    } else {
+      driver.leftCoast();
+      finishedLeft = true;
+
+      leftTime = micros() - start;
+    }
+
+    if((shifted < shifter.COUNTS_PER_REV_ * ROTATIONS_TO_USE) && !finishedRight){
+      driver.rightBackward(right);
+    } else {
+      driver.rightCoast();
+      finishedRight = true;
+
+      rightTime = micros() - start;
+    }
+  }
+}
   void setWheels(L293D& driver, CD4021 &shifter, ROB12629 &encoder, void (*resetShifter)(), void (*myISR)()){
     // This function aligns the wheels to both be right on top of a count
     
@@ -349,7 +391,7 @@ namespace mapping{
     while(!localClocked){
       driver.leftForward(0.3);
 
-      Serial.println("Setting left wheel");
+      // Serial.println("Setting left wheel");
       noInterrupts();
       localClocked = _clocked;
       interrupts();
@@ -363,8 +405,8 @@ namespace mapping{
     // - SET THE ANALOG-SIDE WHEEL - 
     uint8_t initialCount = shifter.shiftIn();
     while(initialCount == shifter.shiftIn()){
-      Serial.print("Setting right wheel = ");
-      Serial.println(initialCount);
+      // Serial.print("Setting right wheel = ");
+      // Serial.println(initialCount);
       driver.rightForward(0.3);
     }
     driver.rightBrake(L293D_BRAKE_TIME);
@@ -376,6 +418,21 @@ namespace mapping{
 
 }
 
+float binaryAdjust(float current, float& high, float& low, float error, const float TOLERANCE){
+  // Error here is (time - target)/target
+
+  if(fabs(error) > TOLERANCE){
+    if(error > 0){
+      low = current;
+    } else {
+      high = current;
+    }
+
+    current = (low + high) / 2.0f;
+    current = constrain(current, 0.0f, 1.0f);
+  }
+  return current; 
+}
 
 
 
