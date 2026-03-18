@@ -28,42 +28,7 @@ bool read(WiFiClient& GUI, Buffer<N>& buffer){
 template <uint8_t N>
 void handle(Buffer<N> buffer){
   if(buffer.available() > 0){
-    if(state.mode == MANUAL){
-      manualHandle(buffer);
-    } else if (state.mode == MAPPING){
-      mappingHandle(buffer);
-    }
-  }
-}
-
-template <uint8_t N>
-void manualHandle(Buffer<N> buffer){
-  char command[N];
-
-  buffer.read(command, N);
-
-  if(command == nullptr) return;
-
-  char function = *command; 
-
-  if (function == *comm::FORWARD){
-    state.leftSpeedPercentage = 0.8;
-    state.rightSpeedPercentage = 1;
-  }
-  else if (function == *comm::TURN_LEFT){
-    state.leftSpeedPercentage = 0.8;
-    state.rightSpeedPercentage = -1;
-  }
-  else if (function == *comm::TURN_RIGHT){
-    state.leftSpeedPercentage = -0.8;
-    state.rightSpeedPercentage = 1;
-  }
-  else if (function == *comm::BACKWARD){
-    state.leftSpeedPercentage = -0.8;
-    state.rightSpeedPercentage = -1;
-  }
-  else if(function == CHANGE_TO_MAPPING){
-    state.mode = MAPPING;
+    mappingHandle(buffer);
   }
 }
 
@@ -84,13 +49,9 @@ void mappingHandle(Buffer<N> buffer){
   }
   else if (function == *comm::TURN_LEFT){
     state.activity = LEFT;
-    state.targetAngle = atoi(value)
   }
   else if (function == *comm::TURN_RIGHT){
     state.activity = RIGHT;
-    state.targetAngle = atoi(value)
   }   
-  else if(function == CHANGE_TO_MANUAL){
-    state.mode = MANUAL;
-  }
+
 }
