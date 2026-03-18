@@ -1,111 +1,73 @@
-#include <Arduino_FreeRTOS.h>
+#include "Buggy.h"
 
-#include "NetworkSetup.h"
-#include "HCSR04.h"
-#include "L293D.h"
-#include "ROB12629.h"
-#include <WiFiS3.h>
-#include "GUI.h"
-#include "Buffer.h"
-#include "State.h"
-#include "Commands.h"
-#include "CD4021.h"
+constexpr uint8_t N = 200;
+Buffer<N> in;
+WiFiServer server(wifi::PORT);
+WiFiClient GUI;
 
-// Declaration of Interrupt Service Routines and the encoder
-void leftISR(); 
+L293D driver(6, 7, 11, 12, 9, 10);
 
-// Tasks (for scheduler to handle)
-void telemetry(void *);
-void sense(void *);
+HCSR04 ears(8, 3);
 
-// Declare handles for each task, used to pass to task-analysing functions like uxTaskGetStackHighWaterMark()
-TaskHandle_t telemetryHandle, senseHandle;
+CD4021 shifter(3, 5, 4);
 
-// Set up semaphores (I think we just need a mutex?)
-SemaphoreHandle_t stateSemaphore;
+ROB12629 encoder(2);
 
-void setup() {
-  // Set up serial for debugging
+constexpr uint8_t RESET_PIN = 13;
+
+void setup () {
   Serial.begin(115200);
 
-  // Set up network
   wifi::initialiseAccessPoint();
-
-  // Set up semaphore
-  stateSemaphore = xSemaphoreCreateBinary();
-  configASSERT(stateSemaphore != nullptr);
-  xSemaphoreGive(stateSemaphore); 
-
-  // Set up tasks
-  xTaskCreate(telemetry, "Read from GUI", 2048, nullptr, 1, &telemetryHandle);
-  xTaskCreate(sense, "Sense and drive", 2048, nullptr, 2, &senseHandle);
-
-  // Start scheduler (does not return)
-  vTaskStartScheduler();
-}
-
-void loop() {
-  // This is the idle task if everything else is blocking, everything else is handled by the scheduler
-}
-
-// - ISRs -
-void leftISR(){
-  leftEncoder.increment();
-}
-
-// - TASK 1 -
-void telemetry(void *parameters){
-  // Networking objects
-  Buffer<200> buffer;
-  WiFiServer server(wifi::PORT);
   server.begin();
 
-  WiFiClient GUI;
-
-  while(true){
-    // Reconnect if disconnected
-    keep(GUI, server);
-    // Read a command if there is one
-    read(GUI, buffer);
-    // Handle a command if there is one
-
-    if(xSemaphoreTake(stateSemaphore, pdMS_TO_TICKS(5)) == pdTRUE){
-      handle(buffer);
-      sendDistance(GUI, state::currentDistance);
-      xSemaphoreGive(stateSemaphore);
-    }
-
-    // Block this task for however long
-    vTaskDelay(pdMS_TO_TICKS(200));
-  }
-}
-
-// - TASK 2 -
-void sense(void *parameters){
-  // Declare physical constants
-  constexpr float CIRCUMFERENCE = 20.4, DIAMETER = 6.5, AXLE = 14.5;
-
-  // Hardware objects
-  HCSR04 ears(8, 3); // PINS NEED TO BE CHANGED
-  ROB12629 leftEncoder(2);
-  CD4021 shifter(4, 5, 13);
-  L293D driver(6,7,11,12,9,10);
-
-  // Set up hardware
   driver.begin();
   ears.begin();
-  shifter.begin();
-  // We pass ISRs to the encoders
-  leftEncoder.begin(leftISR);
 
-  constexpr TickType_t period= pdMS_TO_TICKS(15);
-  TickType_t lastWakeTime = xTaskGetTickCount();
-  while(true){
+  
 
+  mapping::fetchEEPROM();
+  state.mode = MAPPING;
+}
 
+void loop () {
+  keep(GUI, server);
 
-    xTaskDelayUntil(&lastWakeTime, period); 
+  read(GUI, in);
+
+  handle(in);
+
+  constexpr uint8_t US_POLLING_RATE = 150;
+
+  switch (state.activity){
+    case IDLE:
+      // do nothing
+    break;
+
+    case FORWARD:
+      if(safe(ears)){
+        mapping::forward(driver);
+        state.activity = IDLE;
+      }
+    break;
+
+    case LEFT:
+      mapping::left(driver);
+    break;
+
+    case RIGHT:
+      mapping::right(driver);
+    break;
   }
 }
 
-// - OTHER FUNCTIONS -
+void reset(){
+  digitalWrite(RESET_PIN, HIGH);
+  delayMicroseconds(1);
+  digitalWrite(RESET_PIN, LOW);
+}
+
+bool safe(HCSR04 &ears){
+
+  return false;
+}
