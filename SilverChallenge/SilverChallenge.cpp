@@ -1,9 +1,6 @@
 #include "Buggy.h"
 
-constexpr uint8_t N = 200;
-Buffer<N> in;
-WiFiServer server(wifi::PORT);
-WiFiClient GUI;
+
 
 L293D driver(6, 7, 11, 12, 9, 10);
 
@@ -54,7 +51,7 @@ void loop () {
     break;
 
     case FORWARD:
-      mapping::forward(driver, ears, encoder);
+      mapping::forward(driver, ears, shifter, encoder, reset);
 
       char message[64];
       snprintf(message, sizeof(message), "Speed = %f", (state.leftForwardCmPerSecond + state.rightForwardCmPerSecond) / 2);
@@ -92,14 +89,7 @@ void loop () {
 
   auto now = millis();
   static auto then = now;
-  if(now - then >= 10000){
-    char message[64];
-    snprintf(message, sizeof(message), "Total distance = %f", state.totalDistance);
-    
-    sendEvent(GUI, message);
-
-    snprintf(message, sizeof(message), "Speed = %f", 0.0);
-    sendEvent(GUI, message);
+  if(now - then >= 2000){
 
     GUI.print(comm::LEFT_SPEED); GUI.print(comm::DELIMITER); GUI.println(state.leftForwardPercentage);
     GUI.print(comm::RIGHT_SPEED); GUI.print(comm::DELIMITER); GUI.println(state.rightForwardPercentage);
