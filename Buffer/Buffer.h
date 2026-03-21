@@ -31,7 +31,9 @@ public:
     char c;
     uint8_t i;
 
-    for(i = 0; i < size - 1; ++i){
+    if(size == 0) return 0;
+    
+    for(i = 0; i < size; ++i){
       if(!read(c)) break;//break out if the read fails
       destination[i] = c;
       if(c == '\n') break;
@@ -70,9 +72,8 @@ public:
     return buffer_[tail_];
   }
 
-  const char* peekCommand() const{
-    if(count_ == 0) return '\0';
-    return buffer_[head_];
+  const char* peekWhole() const{
+    return buffer_;
   }
   uint8_t space() const{return N - count_;}
 

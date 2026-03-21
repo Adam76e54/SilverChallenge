@@ -3,7 +3,7 @@
 #include <Arduino.h> 
 
 enum MODE : uint8_t {MANUAL, MAPPING};
-enum ACTIVITY : uint8_t {IDLE, FORWARD, LEFT, RIGHT, CALIBRATING};
+enum ACTIVITY : uint8_t {IDLE, FORWARD, LEFT, RIGHT, MATCHING, CALIBRATING_RIGHT, CALIBRATING_LEFT};
 
 struct State{
   MODE mode = MANUAL;
@@ -50,7 +50,6 @@ struct State{
   const unsigned int LEFT_TURN_TIME_ADDRESS = RIGHT_BACKWARD_CM_PER_SECOND_ADDRESS + sizeof(float);
   const unsigned int RIGHT_TURN_TIME_ADDRESS = LEFT_TURN_TIME_ADDRESS + sizeof(unsigned long);
 
-  float maxUltraSonicDistance = 15.0;
   float currentDistance = 999.0;
 
   bool stopped = true;

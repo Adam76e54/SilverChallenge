@@ -11,5 +11,4 @@ namespace wifi{
 
   void connect(const char* ssid, const char* password, IPAddress& address);
 
-  
 }
