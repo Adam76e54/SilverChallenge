@@ -84,29 +84,6 @@ namespace mapping{
     state.totalDistance += state.targetDistance;
 
   }
-  void backward(L293D &driver) {
-
-    // NOTE: should probably allow for difference in wheels here too so that it ends up being roughly square
-
-    unsigned long leftDuration_us = (unsigned long)(state.targetDistance / state.leftBackwardCmPerSecond * 1e6f);
-    unsigned long rightDuration_us = (unsigned long)(state.targetDistance / state.rightBackwardCmPerSecond * 1e6f);
-
-    auto start = micros();
-
-    bool leftDone = false, rightDone = false;
-    driver.backward(state.leftBackwardPercentage, state.rightBackwardPercentage);
-    while (!leftDone || !rightDone) {
-      auto time = micros() - start;
-      if((time < leftDuration_us) && (time < rightDuration_us)){
-        // keep going
-      } else {
-        leftDone = rightDone = true;
-        driver.brake(L293D_BRAKE_TIME);
-      }
-    }
-
-    state.totalDistance += state.targetDistance;
-  }
 
   void left(L293D& driver){
     auto start = micros();
@@ -290,33 +267,12 @@ namespace mapping{
       state.rightBackwardPercentage = speed;
     }
 
-    EEPROM.get(state.LEFT_FORWARD_CM_PER_SECOND_ADDRESS, speed);
-    state.leftForwardCmPerSecond = speed;
-
-    EEPROM.get(state.RIGHT_FORWARD_CM_PER_SECOND_ADDRESS, speed);
-    state.rightForwardCmPerSecond = speed;
-
-    EEPROM.get(state.LEFT_BACKWARD_CM_PER_SECOND_ADDRESS, speed);
-    state.leftBackwardCmPerSecond = speed;
-
-    EEPROM.get(state.RIGHT_BACKWARD_CM_PER_SECOND_ADDRESS, speed);
-    state.rightBackwardCmPerSecond = speed;
-    
     EEPROM.get(state.RIGHT_TURN_TIME_ADDRESS, state.righTurnTime);
     EEPROM.get(state.LEFT_TURN_TIME_ADDRESS, state.leftTurnTime);
   }
 
   void matchSpeeds(L293D& driver, CD4021 &shifter, ROB12629 &encoder, void (*resetShifter)(), void (*myISR)()){
-    float leftForwardPercentage = state.leftForwardPercentage;
-    float rightForwardPercentage = state.rightForwardPercentage;
-
-    float leftBackwardPercentage = state.leftBackwardPercentage;
-    float rightbackwardPercentage = state.rightBackwardPercentage;
-
-    Serial.print("Matching speed, right side = ");
-    Serial.println(rightForwardPercentage);
-
-    constexpr uint8_t ROTATIONS_TO_USE = 4;
+    constexpr uint8_t ROTATIONS_TO_USE = 3;
     constexpr float CIRCUMFERENCE = 20.4;
 
     constexpr unsigned long TARGET_TIME = 1e6 * ROTATIONS_TO_USE;
@@ -326,103 +282,93 @@ namespace mapping{
     bool forwardCalibrated = false, backwardCalibrated = false;
 
 
-    float leftfHigh = 1.0f, leftfLow = 0.0f;
-    float rightfHigh = 1.0f, rightfLow = 0.0f;
+    // These are brackest for binaryAdjust() 
+    float leftfHigh = 0.6f, leftfLow = 0.2f;
+    float rightfHigh = 0.6f, rightfLow = 0.2f;
 
-    float leftbHigh = 1.0f, leftbLow = 0.0f;
-    float rightbHigh = 1.0f, rightbLow = 0.0f;
+    float leftbHigh = 0.6f, leftbLow = 0.2f;
+    float rightbHigh = 0.6f, rightbLow = 0.2f;
 
+    // Iteration capping so it can't loop forever if binaryAdjust() isn't finding the target speed
     int8_t iteration = 0;
-    constexpr uint8_t MAX_ITERATIONS = 20;
+    constexpr uint8_t MAX_ITERATIONS = 10;
 
+    // if lastSpeed = adjustedSpeed, we've calibrated
+    float lastFL = 0, lastFR = 0, lastBL = 0, lastBR = 0;
+
+    // - CALIBRATION LOOP -
     while((!forwardCalibrated || !backwardCalibrated) && iteration < MAX_ITERATIONS){
       ++iteration;
-      // - SET WHEELS ABOVE A COUNT -
-      delay(1000);
-      mapping::setWheels(driver, shifter, encoder, resetShifter, myISR);
-      // - PERFORM FOWARD RUN -
-      delay(1000);
 
+      constexpr uint8_t RUNS = 3;
+      // backwardLefTimes = blt, forwardRightTimes = frt, etc.
+      unsigned long blt[RUNS], brt[RUNS], flt[RUNS], frt[RUNS];
 
-      if(!forwardCalibrated){
-        // - MEAURE FORWARD RUN -
-        unsigned long leftTime = 0, rightTime = 0;
-        mapping::measureForward(driver, shifter, encoder, leftForwardPercentage
-          , rightForwardPercentage, leftTime, rightTime, ROTATIONS_TO_USE);
+      for(uint8_t i = 0; i < RUNS; ++i){
+        mapping::setWheels(driver, shifter, encoder, resetShifter, myISR);
 
-        // - ADJUST FORWARD SPEEDS -
-        float leftError = (float)((long)leftTime - (long)TARGET_TIME) / (TARGET_TIME);  
-        float rightError = (float)((long)rightTime - (long)TARGET_TIME) / (TARGET_TIME);
+        mapping::measureForward(driver, shifter, encoder
+          , state.leftForwardPercentage, state.rightForwardPercentage, flt[i], frt[i], ROTATIONS_TO_USE);
 
+        mapping::setWheels(driver, shifter, encoder, resetShifter, myISR);
 
-        leftForwardPercentage = mapping::binaryAdjust(leftForwardPercentage, leftfHigh, leftfLow, leftError, TOLERANCE);
-
-        rightForwardPercentage = mapping::binaryAdjust(rightForwardPercentage, rightfHigh, rightfLow, rightError, TOLERANCE);
-
-        // Serial.print("[forward calibrator] left error = "); Serial.print(leftError, 6);
-        // Serial.print("  right error = "); Serial.print(rightError, 6);
-        // Serial.println();
-
-        if(fabs(leftError) <= TOLERANCE && fabs(rightError) <= TOLERANCE){
-          forwardCalibrated = true;
-
-          state.leftForwardPercentage = leftForwardPercentage;
-          state.rightForwardPercentage = rightForwardPercentage;
-
-          state.leftForwardCmPerSecond = (CIRCUMFERENCE * ROTATIONS_TO_USE) / (leftTime / 1e6);
-          state.rightForwardCmPerSecond = (CIRCUMFERENCE * ROTATIONS_TO_USE) / (rightTime / 1e6);
-        }
-
-      } 
-
-      // - PERFORM BACKWARDS RUN -
-      // - SET WHEELS ABOVE A COUNT -
-      delay(1000);
-      mapping::setWheels(driver, shifter, encoder, resetShifter, myISR);
-      delay(1000);
-
-      if(!backwardCalibrated){
-
-        unsigned long leftTime = 0, rightTime = 0;
-        mapping::measureBackward(driver, shifter, encoder, leftBackwardPercentage
-          , rightbackwardPercentage, leftTime, rightTime, ROTATIONS_TO_USE);
-
-        // - ADJUST BACKWARD SPEEDS -
-        float leftError = (float)((long)leftTime - (long)TARGET_TIME) / (TARGET_TIME);  
-        float rightError = (float)((long)rightTime - (long)TARGET_TIME) / (TARGET_TIME);
-
-
-        leftBackwardPercentage = mapping::binaryAdjust(leftBackwardPercentage, leftbHigh, leftbLow, leftError, TOLERANCE);
-        rightbackwardPercentage = mapping::binaryAdjust(rightbackwardPercentage, rightbHigh, rightbLow, rightError, TOLERANCE);
-
-        // Serial.print("[backward calibrator] left error = "); Serial.print(leftError, 6);
-        // Serial.print("  right error = "); Serial.print(rightError, 6);
-        // Serial.println();
-
-        if(fabs(leftError) <= TOLERANCE && fabs(rightError) <= TOLERANCE){
-          backwardCalibrated = true;
-
-          state.leftBackwardPercentage = leftBackwardPercentage;
-          state.rightBackwardPercentage = rightbackwardPercentage;
-
-          state.leftBackwardCmPerSecond = (CIRCUMFERENCE * ROTATIONS_TO_USE) / (leftTime / 1e6);
-          state.rightBackwardCmPerSecond = (CIRCUMFERENCE * ROTATIONS_TO_USE) / (rightTime / 1e6);
-        }
+        mapping::measureBackward(driver, shifter, encoder
+          , state.leftBackwardPercentage, state.rightBackwardPercentage, blt[i], brt[i], ROTATIONS_TO_USE);
       }
+
+      unsigned long bltTally = 0, brtTally = 0, fltTally = 0, frtTally = 0;
+      for(uint8_t i = 0; i < RUNS; ++i){ 
+        bltTally += blt[i];
+        brtTally += brt[i];
+        fltTally += flt[i];
+        frtTally += frt[i];
+      }
+
+      unsigned long br = brtTally / RUNS;
+      unsigned long bl = bltTally / RUNS;
+      unsigned long fr = frtTally / RUNS;
+      unsigned long fl = fltTally / RUNS;
+
+      auto makeError = [TARGET_TIME](unsigned long measurement) {
+        return (float)((long)measurement - (long)TARGET_TIME) / TARGET_TIME;
+      };
+
+      state.leftForwardPercentage = binaryAdjust(state.leftForwardPercentage, leftfHigh, leftfLow
+        , makeError(fl), TOLERANCE);
+
+      state.rightForwardPercentage = binaryAdjust(state.rightForwardPercentage, rightfHigh, rightfLow
+        , makeError(fr), TOLERANCE);
+
+      if(lastFL == state.leftForwardPercentage && lastFR == state.rightForwardPercentage){
+        forwardCalibrated = true;
+      } else {
+        lastFL = state.leftForwardPercentage;
+        lastFR = state.rightForwardPercentage;
+      }
+
+      state.rightBackwardPercentage = binaryAdjust(state.rightBackwardPercentage, rightbHigh, rightbLow
+        , makeError(br), TOLERANCE);
+
+      state.leftBackwardPercentage = binaryAdjust(state.leftBackwardPercentage, leftbHigh, leftbLow
+        , makeError(bl), TOLERANCE);
+
+      if(lastBL == state.leftBackwardPercentage && lastBR == state.rightBackwardPercentage){
+        backwardCalibrated = true;
+      } else {
+        lastBL = state.leftBackwardPercentage;
+        lastBR = state.rightBackwardPercentage;
+      }
+
     }
 
     // - UPDATE EEPROM -
     EEPROM.put(state.LEFT_FORWARD_PERCENTAGE_ADDRESS, state.leftForwardPercentage);
-    EEPROM.put(state.LEFT_FORWARD_CM_PER_SECOND_ADDRESS, state.leftForwardCmPerSecond);
 
     EEPROM.put(state.LEFT_BACKWARD_PERCENTAGE_ADDRESS, state.leftBackwardPercentage);
-    EEPROM.put(state.LEFT_BACKWARD_CM_PER_SECOND_ADDRESS, state.leftBackwardCmPerSecond);
 
     EEPROM.put(state.RIGHT_FORWARD_PERCENTAGE_ADDRESS, state.rightForwardPercentage);
-    EEPROM.put(state.RIGHT_FORWARD_CM_PER_SECOND_ADDRESS, state.rightForwardCmPerSecond);
 
     EEPROM.put(state.RIGHT_BACKWARD_PERCENTAGE_ADDRESS, state.rightBackwardPercentage);
-    EEPROM.put(state.RIGHT_BACKWARD_CM_PER_SECOND_ADDRESS, state.rightBackwardCmPerSecond);
 
     state.totalDistance = 0;
   }
@@ -546,7 +492,6 @@ namespace mapping{
       }
 
       current = (low + high) / 2.0f;
-      current = constrain(current, 0.0f, 1.0f);
     }
     return current; 
   }
