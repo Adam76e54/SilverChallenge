@@ -4,7 +4,7 @@ void read(Client sam){
     
     if(line != null){
      //addLine(line, maxLines);
-     //print(line);
+     print(line);
 
        line = trim(line);//get rid of the /n
 
@@ -37,6 +37,26 @@ void read(Client sam){
 
            rightSlider.setValue(newRead);
            initialisedRight = true;
+         }
+       }
+       
+       if(line.startsWith(comm_CURRENT_SPEED)){
+         String[] splitString = split(line, ':');
+         if(splitString.length == 2){
+           float newRead = float(splitString[1]);
+           
+           currentSpeedTextlabel.setText("Current Speed = " + newRead);
+ 
+         }
+       }
+       
+       if(line.startsWith(comm_CURRENT_SPEED)){
+         String[] splitString = split(line, ':');
+         if(splitString.length == 2){
+           float newRead = float(splitString[1]);
+           
+           totalDistanceTextlabel.setText("Total Distance = " + newRead);
+ 
          }
        }
 

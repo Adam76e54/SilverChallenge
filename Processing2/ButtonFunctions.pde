@@ -34,3 +34,10 @@ public void CalibrateRightButton(int nan){
     sam.write(comm_CALIBRATE_RIGHT + comm_END);
   }  
 }
+
+public void SaveEEPROMButton(int nan){
+  if(sam != null && sam.active()){
+    sam.write(comm_SAVE_EEPROM + comm_END);
+  }  
+  
+}

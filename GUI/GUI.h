@@ -8,9 +8,9 @@
 #include "NetworkSetup.h"
 
 constexpr uint8_t N = 200;
-Buffer<N> in;
-WiFiServer server(wifi::PORT);
-WiFiClient GUI;
+extern Buffer<N> in;
+extern WiFiServer server;
+extern WiFiClient GUI;
 
 // Keep connection alive
 void keep(WiFiClient& GUI, WiFiServer& server){
@@ -82,6 +82,9 @@ void mappingHandle(Buffer<N>& buffer){
   }
   else if(function == comm::CALIBRATE_RIGHT){
     state.activity = CALIBRATING_RIGHT;
+  }  
+  else if(function == comm::SAVE_EEPROM){
+    state.activity = SAVING_EEPROM;
   }
   else if(function == comm::CHANGE_TARGET){
     if(command[1] == comm::DELIMITER){
@@ -101,7 +104,6 @@ void mappingHandle(Buffer<N>& buffer){
       state.rightForwardPercentage = atof(value);
     }
   }
-
 }
 
 void sendEvent(WiFiClient& GUI, const char* event){

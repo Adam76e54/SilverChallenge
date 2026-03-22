@@ -2,7 +2,8 @@ ControlP5 panel;
 
 Button forwardButton, 
   leftButton, rightButton, 
-  matchSpeedsButton, calibrateLeftButton, calibrateRightButton;
+  matchSpeedsButton, calibrateLeftButton, calibrateRightButton, 
+  saveEEPROMButton;
   
 Textlabel totalDistanceTextlabel, currentSpeedTextlabel;
   

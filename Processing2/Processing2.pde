@@ -13,22 +13,26 @@ void setup(){
   }
   
   final int WIDTH = 250;
-  final int HEIGHT = 75;
+  final int HEIGHT = 50;
   panel = new ControlP5(this);
   
-  forwardButton = makeButton(panel, "ForwardButton", width/2 - WIDTH/2, 50, WIDTH, HEIGHT, "Forward");  
+  forwardButton = makeButton(panel, "ForwardButton", width/2 - WIDTH/2, 25, WIDTH, HEIGHT, "Forward");  
   
-  distanceTextfield = makeTextfield(panel, "DistanceTextfield", width/2 - WIDTH/4 + 25, 150, HEIGHT, HEIGHT, "Distance");
+  distanceTextfield = makeTextfield(panel, "DistanceTextfield", width/2 - WIDTH/4 + 37, 110, HEIGHT, HEIGHT, "Distance");
 
-  leftButton = makeButton(panel, "LeftButton", width/2 - WIDTH/2, 250, WIDTH, HEIGHT, "Left");  
-  rightButton = makeButton(panel, "RightButton", width/2 - WIDTH/2, 350, WIDTH, HEIGHT, "Right"); 
+  leftButton = makeButton(panel, "LeftButton", width/2 - WIDTH/2, 200, WIDTH, HEIGHT, "Left");  
+  rightButton = makeButton(panel, "RightButton", width/2 - WIDTH/2, 300, WIDTH, HEIGHT, "Right"); 
   
-  matchSpeedsButton = makeButton(panel, "MatchSpeedsButton", width/2 - WIDTH/2,450, WIDTH, HEIGHT, "Match Speeds");
-  calibrateLeftButton = makeButton(panel, "CalibrateLeftButton",  width/2 - WIDTH/2, 550, WIDTH, HEIGHT, "Calibrate Left Turn");
-  calibrateRightButton = makeButton(panel, "CalibrateRightButton",  width/2 - WIDTH/2, 650, WIDTH, HEIGHT, "Calibrate Right Turn");
+  matchSpeedsButton = makeButton(panel, "MatchSpeedsButton", width/2 - WIDTH/2, 400, WIDTH, HEIGHT, "Match Speeds");
+  calibrateLeftButton = makeButton(panel, "CalibrateLeftButton",  width/2 - WIDTH/2, 500, WIDTH, HEIGHT, "Calibrate Left Turn");
+  calibrateRightButton = makeButton(panel, "CalibrateRightButton",  width/2 - WIDTH/2, 600, WIDTH, HEIGHT, "Calibrate Right Turn");
+  saveEEPROMButton = makeButton(panel, "SaveEEPROMButton", width/2 - WIDTH/2, 700, WIDTH, HEIGHT, "Save Current Speeds");
   
   leftSlider = makeSlider(panel, "LeftSlider", 800, 500, 200, 30, 0, 1, "Left Slider");
   rightSlider = makeSlider(panel, "RightSlider", 800, 550, 200, 30, 0, 1, "Right Slider");
+  
+  totalDistanceTextlabel = makeTextlabel(panel, "TotalDistanceTextlabel", 800, 400, "Total Distance = 0.0");
+  currentSpeedTextlabel = makeTextlabel(panel, "CurrentSpeedTextLabel", 800, 350, "Current Speed = 0.0");
   
 }
 

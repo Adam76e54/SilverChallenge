@@ -7,6 +7,7 @@
 #include "State.h"
 #include "EEPROM.h"
 #include "Controller.h"
+#include "GUI.h"
 
 
 volatile bool _clocked  = false;
@@ -41,27 +42,21 @@ namespace mapping{
     resetShifter();
     controller.reset();
 
-    auto CmPerCount = (20.4 / encoder.COUNTS_PER_REV_) ;
+    // I made a mess of the maths here because I kept tweaking small things to get it to work
+    // Don't want to risk breaking it right now so won't clean it up
+    constexpr auto CmPerCount = (20.4 / encoder.COUNTS_PER_REV_);
 
     float revTarget = state.targetDistance / CmPerCount / (float)encoder.COUNTS_PER_REV_;
 
     float encoderSide = 0;
-    // constexpr float ADJUSTMENT = 0.75;
-    // constexpr float TOLERANCE = 0.1251f; // The shifter side increment in 0.25
+    uint8_t lastCount = 0;
     while (encoderSide < (revTarget)) {
 
-      encoderSide = (float)encoder.count() / (float)encoder.COUNTS_PER_REV_;
+      auto count = encoder.count();
+      encoderSide = (float)count / (float)encoder.COUNTS_PER_REV_;
       float shifterSide = (float)shifter.shiftIn() / (float)shifter.COUNTS_PER_REV_;
 
       float difference = encoderSide - shifterSide;
-
-      Serial.print("Difference = ");
-      Serial.print(encoderSide);
-      Serial.print(" - ");
-      Serial.print(shifterSide);
-      Serial.print(" = ");
-      Serial.println(difference);
-
       
       if(mapping::safe(ears)){
 
@@ -77,11 +72,25 @@ namespace mapping{
         driver.brake(L293D_BRAKE_TIME);
       
       }
+
+      auto now = millis();
+      static unsigned long then = 0;
+      if(now - then >= 1000){
+        auto countChange = count - lastCount;
+        
+        float speed = (float)(countChange) / (float)((long)now - (long)then);
+        Serial.print(comm::CURRENT_SPEED); Serial.print(':'); Serial.println(speed);
+        GUI.print(comm::CURRENT_SPEED); GUI.print(':'); GUI.println(speed);
+      }
+
     }
     
     driver.brake(L293D_BRAKE_TIME);
     
-    state.totalDistance += state.targetDistance;
+    state.totalDistance += CmPerCount / revTarget * encoder.COUNTS_PER_REV_;
+
+    Serial.print(comm::TOTAL_DISTANCE); Serial.print(':'); Serial.println(state.totalDistance);
+    GUI.print(comm::TOTAL_DISTANCE); GUI.print(':'); GUI.println(state.totalDistance);
 
   }
 
@@ -271,9 +280,14 @@ namespace mapping{
     EEPROM.get(state.LEFT_TURN_TIME_ADDRESS, state.leftTurnTime);
   }
 
+  void saveEEPROM(){
+    EEPROM.put(state.LEFT_FORWARD_PERCENTAGE_ADDRESS, state.leftForwardPercentage);
+
+    EEPROM.put(state.RIGHT_FORWARD_PERCENTAGE_ADDRESS, state.rightForwardPercentage);
+  }
+  
   void matchSpeeds(L293D& driver, CD4021 &shifter, ROB12629 &encoder, void (*resetShifter)(), void (*myISR)()){
     constexpr uint8_t ROTATIONS_TO_USE = 3;
-    constexpr float CIRCUMFERENCE = 20.4;
 
     constexpr unsigned long TARGET_TIME = 1e6 * ROTATIONS_TO_USE;
 

@@ -25,6 +25,10 @@ namespace comm
 
   constexpr char LEFT_SPEED = 'L';
   constexpr char RIGHT_SPEED = 'M';
+
+  constexpr char CURRENT_SPEED = 'N';
+  constexpr char TOTAL_DISTANCE = 'O';
+  constexpr char SAVE_EEPROM = 'P';
   
   constexpr  const char* REMOVED_MESSAGE = "Obstacle removed";
   constexpr const char* OBSTACLE_MESSAGE = "Stopped for obstacle";
