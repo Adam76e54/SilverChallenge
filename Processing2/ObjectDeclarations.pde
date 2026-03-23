@@ -7,10 +7,10 @@ Button forwardButton,
   
 Textlabel totalDistanceTextlabel, currentSpeedTextlabel;
   
-Textfield distanceTextfield;
+Textfield distanceTextfield, kp, ki, kd;
   
 boolean initialisedLeft = false, initialisedRight = false;
-Slider leftSlider, rightSlider;
+Slider leftSlider, rightSlider, rightTimeSlider, leftTimeSlider;
 
 Client sam;
 
@@ -33,7 +33,7 @@ Textfield makeTextfield(ControlP5 controller, String name, int x, int y, int w, 
     .setPosition(x, y)
     .setSize(w, h)
     .setAutoClear(true)
-    .setInputFilter(ControlP5.INTEGER)
+    .setInputFilter(ControlP5.FLOAT)
     .setLabel(label)
     .setFont(createFont("Arial", 30));
     

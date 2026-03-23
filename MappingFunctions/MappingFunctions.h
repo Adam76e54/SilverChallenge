@@ -32,10 +32,10 @@ namespace mapping{
     
   bool safe(HCSR04 &ears);
 
-  Controller controller(0.5f, 0.1f, 0.1f);
 
 
   void forward(L293D &driver, HCSR04& ears, CD4021& shifter, ROB12629& encoder, void (*resetShifter)()) {
+    Controller controller(state.kp, state.ki, state.kd);
 
     // NOTE: should probably allow for difference in wheels here too so that it ends up being roughly square
     encoder.reset();
@@ -44,7 +44,8 @@ namespace mapping{
 
     // I made a mess of the maths here because I kept tweaking small things to get it to work
     // Don't want to risk breaking it right now so won't clean it up
-    constexpr auto CmPerCount = (20.4 / encoder.COUNTS_PER_REV_);
+    constexpr float CIRCUMFERENCE = 21.0f;
+    constexpr auto CmPerCount = (CIRCUMFERENCE / encoder.COUNTS_PER_REV_);
 
     float revTarget = state.targetDistance / CmPerCount / (float)encoder.COUNTS_PER_REV_;
 
@@ -75,22 +76,27 @@ namespace mapping{
 
       auto now = millis();
       static unsigned long then = 0;
-      if(now - then >= 1000){
+      if(now - then >= 500){
         auto countChange = count - lastCount;
         
-        float speed = (float)(countChange) / (float)((long)now - (long)then);
+        float speed = ((float)(countChange) * CIRCUMFERENCE * encoder.COUNTS_PER_REV_)/ (float)((long)now - (long)then) * 10;
+        Serial.print("Speed = "); Serial.println(speed);
         Serial.print(comm::CURRENT_SPEED); Serial.print(':'); Serial.println(speed);
         GUI.print(comm::CURRENT_SPEED); GUI.print(':'); GUI.println(speed);
+
+        then = now;
+
+        lastCount = count;
       }
 
     }
     
     driver.brake(L293D_BRAKE_TIME);
     
-    state.totalDistance += CmPerCount / revTarget * encoder.COUNTS_PER_REV_;
+    state.totalDistance += encoderSide * CIRCUMFERENCE;
+    Serial.print("Distance = "); Serial.println(state.totalDistance);
 
     Serial.print(comm::TOTAL_DISTANCE); Serial.print(':'); Serial.println(state.totalDistance);
-    GUI.print(comm::TOTAL_DISTANCE); GUI.print(':'); GUI.println(state.totalDistance);
 
   }
 
@@ -98,7 +104,7 @@ namespace mapping{
     auto start = micros();
     while(true){
 
-      if(micros() - start <= state.leftTurnTime){
+      if(micros() - start <= (state.leftTurnTime * state.leftTurnFactor)){
         driver.leftBackward(state.leftBackwardPercentage);
         driver.rightForward(state.rightForwardPercentage);
       } else {
@@ -114,7 +120,7 @@ namespace mapping{
     auto start = micros();
     while(true){
 
-      if(micros() - start <= state.righTurnTime){
+      if(micros() - start <= (state.righTurnTime * state.rightTurnFactor)){
         driver.leftForward(state.leftForwardPercentage);
         driver.rightBackward(state.rightBackwardPercentage);
       } else {
@@ -123,6 +129,7 @@ namespace mapping{
       }
 
     }
+
 
   }
 

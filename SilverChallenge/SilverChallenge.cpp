@@ -1,6 +1,8 @@
 #include "Buggy.h"
 
-
+Buffer<N> in;
+WiFiServer server(wifi::PORT);
+WiFiClient GUI;
 
 L293D driver(6, 7, 11, 12, 9, 10);
 
@@ -27,6 +29,8 @@ void setup () {
 
   shifter.begin();
   encoder.begin(myISR);
+  pinMode(RESET_PIN, OUTPUT);
+  digitalWrite(RESET_PIN, LOW);
 
   mapping::fetchEEPROM();
   state.mode = MAPPING;
@@ -46,11 +50,26 @@ void loop () {
 
   switch (state.activity){
 
-    case IDLE:
+    case IDLE: {
       // do nothing
+      auto now = millis();
+      static auto then = now;
+      if(now - then >= 500){
+        GUI.print(comm::LEFT_SPEED); GUI.print(comm::DELIMITER); GUI.println(state.leftForwardPercentage);
+        GUI.print(comm::RIGHT_SPEED); GUI.print(comm::DELIMITER); GUI.println(state.rightForwardPercentage);
+        GUI.print(comm::CURRENT_SPEED); GUI.print(':'); GUI.println(0.0);
+        GUI.print(comm::LEFT_FACTOR); GUI.print(':'); GUI.println(state.leftTurnFactor);
+        GUI.print(comm::RIGHT_FACTOR); GUI.print(':'); GUI.println(state.rightTurnFactor);
+        GUI.print(comm::TOTAL_DISTANCE); GUI.print(':'); GUI.println(state.totalDistance);
+
+        then = now;
+      }
+    }
+
     break;
 
     case FORWARD:
+      Serial.println("Entered forward activity");
       mapping::forward(driver, ears, shifter, encoder, reset);
 
       char message[64];
@@ -85,16 +104,10 @@ void loop () {
       mapping::calibrateRight(driver, shifter, encoder, reset, myISR);
     break;
     
-  }
-
-  auto now = millis();
-  static auto then = now;
-  if(now - then >= 2000){
-
-    GUI.print(comm::LEFT_SPEED); GUI.print(comm::DELIMITER); GUI.println(state.leftForwardPercentage);
-    GUI.print(comm::RIGHT_SPEED); GUI.print(comm::DELIMITER); GUI.println(state.rightForwardPercentage);
-
-    then = now;
+    case SAVING_EEPROM:
+      state.activity = IDLE;
+      mapping::saveEEPROM();
+    break;
   }
 }
 

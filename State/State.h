@@ -32,6 +32,13 @@ struct State{
   float leftBackwardCmPerSecond = 0;
   float rightBackwardCmPerSecond = 0;
 
+  float rightTurnFactor = 1.0f;
+  float leftTurnFactor = 1.0f;
+
+  float kp = 0.05;
+  float ki = 0.0;
+  float kd = 0.0;
+
   unsigned long leftTurnTime = 0;
   unsigned long righTurnTime = 0;
 

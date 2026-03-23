@@ -50,7 +50,7 @@ void read(Client sam){
          }
        }
        
-       if(line.startsWith(comm_CURRENT_SPEED)){
+       if(line.startsWith(comm_TOTAL_DISTANCE)){
          String[] splitString = split(line, ':');
          if(splitString.length == 2){
            float newRead = float(splitString[1]);
@@ -59,7 +59,24 @@ void read(Client sam){
  
          }
        }
-
+       
+       if(line.startsWith(comm_RIGHT_FACTOR)){
+         String[] splitString = split(line, ':');
+         if(splitString.length == 2){
+           float newRead = float(splitString[1]);
+           
+           rightTimeSlider.setValue(newRead);
+         }
+       }
+       
+       if(line.startsWith(comm_LEFT_FACTOR)){
+         String[] splitString = split(line, ':');
+         if(splitString.length == 2){
+           float newRead = float(splitString[1]);
+           
+           leftTimeSlider.setValue(newRead);
+         }
+       }
     }
   }
 }

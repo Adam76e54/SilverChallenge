@@ -26,5 +26,12 @@ final String comm_CURRENT_SPEED = "N";
 final String comm_TOTAL_DISTANCE = "O";
 final String comm_SAVE_EEPROM = "P";
 
+final String comm_RIGHT_FACTOR = "Q";
+final String comm_LEFT_FACTOR = "R";
+
+final String comm_KP = "S";
+final String comm_KI = "T";
+final String comm_KD = "U";
+
 //final String REMOVED_MESSAGE = "Obstacle removed";
 //final String OBSTACLE_MESSAGE = "Stopped for obstacle";

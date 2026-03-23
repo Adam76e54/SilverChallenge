@@ -104,6 +104,31 @@ void mappingHandle(Buffer<N>& buffer){
       state.rightForwardPercentage = atof(value);
     }
   }
+  else if(function == comm::RIGHT_FACTOR){
+    if(command[1] == comm::DELIMITER){
+      state.rightTurnFactor = atof(value);
+    }
+  }
+  else if(function == comm::LEFT_FACTOR){
+    if(command[1] == comm::DELIMITER){
+      state.leftTurnFactor = atof(value);
+    }
+  }
+  else if(function == comm::KP){
+    if(command[1] == comm::DELIMITER){
+      state.kp = atof(value);
+    }
+  }
+  else if(function == comm::KI){
+    if(command[1] == comm::DELIMITER){
+      state.ki = atof(value);
+    }
+  }
+  else if(function == comm::KD){
+    if(command[1] == comm::DELIMITER){
+      state.kd = atof(value);
+    }
+  }
 }
 
 void sendEvent(WiFiClient& GUI, const char* event){

@@ -19,6 +19,11 @@ void setup(){
   forwardButton = makeButton(panel, "ForwardButton", width/2 - WIDTH/2, 25, WIDTH, HEIGHT, "Forward");  
   
   distanceTextfield = makeTextfield(panel, "DistanceTextfield", width/2 - WIDTH/4 + 37, 110, HEIGHT, HEIGHT, "Distance");
+  
+  kp = makeTextfield(panel, "kp", 820, 200, HEIGHT, HEIGHT, "kp");
+  ki = makeTextfield(panel, "ki", 880, 200, HEIGHT, HEIGHT, "ki");
+  kd = makeTextfield(panel, "kd", 940, 200, HEIGHT, HEIGHT, "kd");
+  
 
   leftButton = makeButton(panel, "LeftButton", width/2 - WIDTH/2, 200, WIDTH, HEIGHT, "Left");  
   rightButton = makeButton(panel, "RightButton", width/2 - WIDTH/2, 300, WIDTH, HEIGHT, "Right"); 
@@ -30,6 +35,9 @@ void setup(){
   
   leftSlider = makeSlider(panel, "LeftSlider", 800, 500, 200, 30, 0, 1, "Left Slider");
   rightSlider = makeSlider(panel, "RightSlider", 800, 550, 200, 30, 0, 1, "Right Slider");
+  
+  rightTimeSlider = makeSlider(panel, "RightTimeSlider", 800, 600, 200, 30, 0, 2, "Right Turn Time Slider");
+  leftTimeSlider = makeSlider(panel, "LeftTimeSlider", 800, 650, 200, 30, 0, 2, "Left Turn Time Slider");
   
   totalDistanceTextlabel = makeTextlabel(panel, "TotalDistanceTextlabel", 800, 400, "Total Distance = 0.0");
   currentSpeedTextlabel = makeTextlabel(panel, "CurrentSpeedTextLabel", 800, 350, "Current Speed = 0.0");
